@@ -1,0 +1,3432 @@
+
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OXY STRIKE | oxy Arena FPS</title>
+    <meta name="description" content="Tarayıcında çalışan 3D FPS: hareket, zıplama, eğilme, ateş etme ve dürbün. Dalgalara karşı hayatta kal!">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32.png">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --accent: #c0ff00;
+            --accent-glow: rgba(192, 255, 0, 0.45);
+            --panel: rgba(8, 12, 7, 0.85);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #05070a;
+            font-family: 'Rajdhani', 'Inter', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #game-canvas {
+            position: fixed;
+            inset: 0;
+            display: block;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Menü etkileşim garantisi */
+        .menu,
+        .menu-inner button,
+        .menu-inner a,
+        .menu-inner input {
+            pointer-events: auto !important;
+        }
+
+        /* Motor yükleme bildirimi */
+        #load-note {
+            position: fixed;
+            left: 50%;
+            bottom: 28px;
+            transform: translateX(-50%);
+            background: var(--panel);
+            border: 1px solid rgba(192, 255, 0, .35);
+            color: #fff;
+            padding: 10px 24px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            z-index: 60;
+            display: none;
+            white-space: nowrap;
+        }
+
+        #load-note.show { display: block; }
+        #load-note.err { border-color: rgba(255, 70, 70, .6); color: #ff9090; }
+
+        /* Sinematik vinyet */
+        #vig {
+            position: fixed;
+            inset: 0;
+            z-index: 5;
+            pointer-events: none;
+            background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, .42) 100%);
+        }
+
+        /* Hasar yönü göstergesi */
+        #hit-dir {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 130px;
+            height: 130px;
+            margin: -65px 0 0 -65px;
+            border-radius: 50%;
+            border: 4px solid transparent;
+            border-top-color: rgba(255, 64, 48, .95);
+            filter: drop-shadow(0 0 8px rgba(255, 60, 40, .7));
+            opacity: 0;
+        }
+
+        #hit-dir.on { animation: hitDir .9s ease-out forwards; }
+
+        @keyframes hitDir {
+            0% { opacity: .95; }
+            100% { opacity: 0; }
+        }
+
+        /* Şarjör değiştirme çubuğu */
+        #reload-wrap {
+            height: 5px;
+            background: rgba(255, 255, 255, .1);
+            border-radius: 99px;
+            margin-top: 8px;
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity .15s;
+        }
+
+        #ammo-wrap.reloading #reload-wrap { opacity: 1; }
+
+        #reload-fill {
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, #ffb020, #ffd24a);
+            border-radius: 99px;
+        }
+
+        /* ================= HUD ================= */
+        #hud {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 10;
+            opacity: 0;
+            transition: opacity .4s ease;
+        }
+
+        #hud.active {
+            opacity: 1;
+        }
+
+        /* Crosshair */
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            --gap: 6px;
+            transition: opacity .12s;
+        }
+
+        #crosshair span {
+            position: absolute;
+            background: var(--accent);
+            box-shadow: 0 0 6px var(--accent-glow);
+        }
+
+        .ch-t { left: -1px; top: calc(-11px - var(--gap)); width: 2px; height: 11px; }
+        .ch-b { left: -1px; top: var(--gap); width: 2px; height: 11px; }
+        .ch-l { top: -1px; left: calc(-11px - var(--gap)); width: 11px; height: 2px; }
+        .ch-r { top: -1px; left: var(--gap); width: 11px; height: 2px; }
+        .ch-dot { top: -1.5px; left: -1.5px; width: 3px; height: 3px; border-radius: 50%; }
+        #crosshair.off { opacity: 0; }
+
+        /* Hitmarker */
+        #hitmarker {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 26px;
+            height: 26px;
+            transform: translate(-50%, -50%) rotate(45deg);
+            opacity: 0;
+        }
+
+        #hitmarker span {
+            position: absolute;
+            background: #fff;
+            box-shadow: 0 0 6px rgba(255, 255, 255, .7);
+        }
+
+        #hitmarker span.a { left: 50%; top: 0; width: 2px; height: 100%; margin-left: -1px; }
+        #hitmarker span.b { top: 50%; left: 0; height: 2px; width: 100%; margin-top: -1px; }
+        #hitmarker.kill span { background: #ff4444; box-shadow: 0 0 8px rgba(255, 60, 60, .9); }
+        #hitmarker.pop { animation: hmPop .22s ease-out; }
+
+        @keyframes hmPop {
+            0% { opacity: 1; transform: translate(-50%, -50%) rotate(45deg) scale(1.5); }
+            100% { opacity: 0; transform: translate(-50%, -50%) rotate(45deg) scale(.75); }
+        }
+
+        /* Dürbün / Scope */
+        #scope {
+            position: absolute;
+            inset: 0;
+            display: none;
+            background: radial-gradient(circle at center, transparent 27%, rgba(0, 0, 0, .55) 28.5%, rgba(0, 0, 0, .985) 34%);
+        }
+
+        #scope.on { display: block; }
+
+        #scope::before,
+        #scope::after {
+            content: '';
+            position: absolute;
+            background: rgba(10, 10, 10, .9);
+        }
+
+        #scope::before { left: 50%; top: 0; bottom: 0; width: 1.5px; margin-left: -.75px; }
+        #scope::after { top: 50%; left: 0; right: 0; height: 1.5px; margin-top: -.75px; }
+
+        #scope-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 56vh;
+            height: 56vh;
+            max-width: 56vw;
+            max-height: 56vw;
+            transform: translate(-50%, -50%);
+            border: 3px solid rgba(0, 0, 0, .95);
+            border-radius: 50%;
+            box-shadow: inset 0 0 60px rgba(0, 0, 0, .8), 0 0 40px rgba(192, 255, 0, .08);
+        }
+
+        #scope-ring i {
+            position: absolute;
+            background: rgba(192, 255, 0, .85);
+            box-shadow: 0 0 6px var(--accent-glow);
+        }
+
+        #scope-ring i:nth-child(1) { left: 50%; top: -14px; width: 1.5px; height: 12px; }
+        #scope-ring i:nth-child(2) { left: 50%; bottom: -14px; width: 1.5px; height: 12px; }
+        #scope-ring i:nth-child(3) { top: 50%; left: -14px; height: 1.5px; width: 12px; }
+        #scope-ring i:nth-child(4) { top: 50%; right: -14px; height: 1.5px; width: 12px; }
+
+        /* Hasar vinyeti */
+        #dmg {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            background:
+                radial-gradient(ellipse at center, transparent 45%, rgba(180, 0, 0, .55) 100%);
+            box-shadow: inset 0 0 140px rgba(255, 20, 20, .65);
+        }
+        /* Sağlık */
+        #health-wrap {
+            position: absolute;
+            left: 34px;
+            bottom: 34px;
+            width: 290px;
+        }
+
+        .hp-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 7px;
+        }
+
+        .hp-title {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            color: rgba(255, 255, 255, .65);
+        }
+
+        #hp-num {
+            font-size: 30px;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1;
+            text-shadow: 0 0 16px var(--accent-glow);
+        }
+
+        .hp-bar {
+            height: 11px;
+            background: rgba(255, 255, 255, .07);
+            border: 1px solid rgba(255, 255, 255, .13);
+            border-radius: 99px;
+            overflow: hidden;
+        }
+
+        #hp-fill {
+            height: 100%;
+            width: 100%;
+            border-radius: 99px;
+            background: linear-gradient(90deg, #8fd400, var(--accent));
+            box-shadow: 0 0 14px var(--accent-glow);
+            transition: width .22s ease;
+        }
+
+        #hp-fill.low {
+            background: linear-gradient(90deg, #ff3b3b, #ff8c42);
+            box-shadow: 0 0 14px rgba(255, 60, 40, .55);
+        }
+
+        /* Cephane */
+        #ammo-wrap {
+            position: absolute;
+            right: 38px;
+            bottom: 30px;
+            text-align: right;
+        }
+
+        #weapon-name {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 4px;
+            color: var(--accent);
+            margin-bottom: 2px;
+        }
+
+        #ammo-row {
+            display: flex;
+            align-items: baseline;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        #ammo-mag {
+            font-family: 'Inter', sans-serif;
+            font-size: 62px;
+            font-weight: 900;
+            color: #fff;
+            line-height: 1;
+            text-shadow: 0 0 26px var(--accent-glow);
+        }
+
+        #ammo-mag.empty { color: #ff5050; text-shadow: 0 0 22px rgba(255, 70, 70, .6); }
+
+        #ammo-res {
+            font-size: 22px;
+            font-weight: 700;
+            color: rgba(255, 255, 255, .5);
+        }
+
+        #reload-hint {
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: #ffb020;
+            opacity: 0;
+            margin-top: 4px;
+        }
+
+        #reload-hint.show { animation: blink 1s ease-in-out infinite; }
+
+        @keyframes blink {
+
+            0%,
+            100% { opacity: 1; }
+            50% { opacity: .25; }
+        }
+
+        /* Üst sol istatistikler */
+        #stats-wrap {
+            position: absolute;
+            top: 26px;
+            left: 30px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .stat-chip {
+            background: var(--panel);
+            border: 1px solid rgba(255, 255, 255, .09);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 12px;
+            padding: 9px 18px 7px;
+            min-width: 92px;
+            text-align: center;
+        }
+
+        .stat-val {
+            font-family: 'Inter', sans-serif;
+            font-size: 23px;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1.15;
+        }
+
+        #stat-online .stat-val {
+            color: #ffffff;
+            font-weight: 800;
+            text-shadow: 0 0 10px var(--accent), 0 0 22px var(--accent-glow);
+        }
+
+        #death-screen {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(8, 10, 14, .72); backdrop-filter: blur(3px);
+            z-index: 30;
+        }
+        #death-screen.hidden { display: none; }
+        #death-title {
+            font-size: clamp(34px, 6vw, 58px); font-weight: 800;
+            letter-spacing: .12em; color: #ff5050;
+            text-shadow: 0 0 24px rgba(255, 60, 60, .45);
+        }
+        #death-by { margin-top: 8px; font-size: 15px; color: rgba(255,255,255,.78); letter-spacing: .06em; }
+        #death-count-wrap { margin-top: 20px; font-size: 14px; color: var(--accent); letter-spacing: .22em; }
+
+        #net-block {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(8, 10, 14, .78); backdrop-filter: blur(3px);
+            z-index: 40;
+        }
+        #net-block.hidden { display: none; }
+        #net-title {
+            font-size: clamp(22px, 4vw, 38px); font-weight: 800;
+            letter-spacing: .14em; color: var(--accent);
+            animation: netPulse 1.2s ease-in-out infinite;
+        }
+        @keyframes netPulse { 50% { opacity: .45; } }
+        #net-sub { margin-top: 10px; font-size: 13px; letter-spacing: .25em; color: rgba(255, 255, 255, .6); }
+
+        .name-input {
+            display: block;
+            margin: 24px auto 0;
+            width: min(320px, 82%);
+            padding: 12px 18px;
+            background: rgba(10, 14, 18, .8);
+            border: 1px solid rgba(255, 255, 255, .14);
+            border-radius: 6px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 3px;
+            text-align: center;
+            text-transform: uppercase;
+            outline: none;
+            transition: border-color .2s, box-shadow .2s;
+        }
+        .name-input:focus { border-color: var(--accent); box-shadow: 0 0 18px var(--accent-glow); }
+        .name-input::placeholder { color: rgba(255, 255, 255, .28); letter-spacing: 3px; text-transform: none; }
+
+        /* ---- liderlik tablosu ---- */
+        #lb-list { margin: 18px auto 0; max-width: 520px; text-align: left; }
+        .lb-row {
+            display: flex; align-items: center; gap: 12px;
+            padding: 7px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, .07);
+            font-size: 14px; letter-spacing: 1px;
+        }
+        .lb-row.head { color: var(--accent); font-size: 11px; letter-spacing: 3px; opacity: .85; }
+        .lb-rank { width: 34px; color: rgba(255, 255, 255, .45); font-weight: 700; }
+        .lb-name { flex: 1; font-weight: 700; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lb-k { width: 56px; text-align: right; color: rgba(255, 255, 255, .75); }
+        .lb-d { width: 56px; text-align: right; color: rgba(255, 255, 255, .45); }
+        .lb-kd { width: 64px; text-align: right; font-weight: 800; color: var(--accent); }
+        #lb-status { margin: 16px 0 0; font-size: 13px; letter-spacing: 2px; color: rgba(255, 130, 130, .95); }
+
+
+        .stat-lbl {
+            font-size: 10.5px;
+            font-weight: 600;
+            letter-spacing: 2.5px;
+            color: rgba(255, 255, 255, .45);
+        }
+
+        /* Kill feed */
+        #feed {
+            position: absolute;
+            top: 28px;
+            right: 200px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            align-items: flex-end;
+        }
+
+        .feed-item {
+            background: var(--panel);
+            border: 1px solid rgba(255, 255, 255, .1);
+            border-right: 3px solid var(--accent);
+            backdrop-filter: blur(10px);
+            padding: 6px 14px;
+            border-radius: 9px;
+            font-size: 15px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, .85);
+            animation: feedIn .25s ease;
+            transition: opacity .5s, transform .5s;
+        }
+
+        .feed-item b { color: var(--accent); }
+        .feed-item.out { opacity: 0; transform: translateX(24px); }
+
+        @keyframes feedIn {
+            from { opacity: 0; transform: translateX(24px); }
+        }
+
+        /* Radar */
+        #radar-wrap {
+            position: absolute;
+            top: 26px;
+            right: 30px;
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: 1px solid rgba(192, 255, 0, .25);
+            background: rgba(5, 9, 4, .72);
+            box-shadow: 0 0 24px rgba(0, 0, 0, .45), inset 0 0 30px rgba(192, 255, 0, .05);
+            overflow: hidden;
+        }
+
+        #radar {
+            width: 100%;
+            height: 100%;
+        }
+
+        #radar-label {
+            position: absolute;
+            top: -1px;
+            right: 186px;
+            font-size: 10px;
+            letter-spacing: 3px;
+            color: rgba(192, 255, 0, .55);
+            font-weight: 700;
+            writing-mode: vertical-rl;
+        }
+        /* ================= AYARLAR ================= */
+        .settings-inner {
+            max-width: 660px;
+            width: min(94vw, 660px);
+        }
+
+        .settings-grid {
+            margin-top: 26px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            text-align: left;
+        }
+
+        .set-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: rgba(255, 255, 255, .04);
+            border: 1px solid rgba(255, 255, 255, .09);
+            border-radius: 12px;
+            padding: 11px 16px;
+            flex-wrap: wrap;
+        }
+
+        .set-label {
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: rgba(255, 255, 255, .85);
+            min-width: 185px;
+        }
+
+        .seg {
+            display: flex;
+            gap: 6px;
+            margin-left: auto;
+            flex-wrap: wrap;
+        }
+
+        .seg button {
+            pointer-events: auto;
+            cursor: pointer;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: 1px;
+            color: rgba(255, 255, 255, .55);
+            background: rgba(255, 255, 255, .05);
+            border: 1px solid rgba(255, 255, 255, .14);
+            border-radius: 8px;
+            padding: 7px 14px;
+            transition: all .15s;
+        }
+
+        .seg button:hover { color: #fff; border-color: rgba(255, 255, 255, .35); }
+
+        .seg button.on {
+            color: #101400;
+            background: var(--accent);
+            border-color: var(--accent);
+            box-shadow: 0 0 14px var(--accent-glow);
+        }
+
+        .set-row input[type=range] {
+            pointer-events: auto;
+            flex: 1;
+            min-width: 120px;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            border-radius: 99px;
+            background: rgba(255, 255, 255, .14);
+            outline: none;
+        }
+
+        .set-row input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 17px;
+            height: 17px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent-glow);
+            cursor: pointer;
+        }
+
+        .set-row input[type=range]::-moz-range-thumb {
+            width: 17px;
+            height: 17px;
+            border: none;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+
+        .set-val {
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--accent);
+            min-width: 52px;
+            text-align: right;
+        }
+
+        /* FPS sayaç */
+        #fps-counter {
+            position: absolute;
+            bottom: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--accent);
+            letter-spacing: 1px;
+            display: none;
+            background: rgba(0, 0, 0, .4);
+            padding: 3px 10px;
+            border-radius: 8px;
+        }
+
+        #fps-counter.show { display: block; }
+
+        /* Skor pop-up'ları */
+        #popups {
+            position: absolute;
+            top: 38%;
+            left: 50%;
+            width: 0;
+            height: 0;
+        }
+
+        .score-pop {
+            position: absolute;
+            transform: translateX(-50%);
+            font-family: 'Inter', sans-serif;
+            font-size: 20px;
+            font-weight: 900;
+            color: var(--accent);
+            text-shadow: 0 0 14px var(--accent-glow), 0 2px 3px rgba(0, 0, 0, .7);
+            white-space: nowrap;
+            animation: popUp 1.1s cubic-bezier(.2, .8, .3, 1) forwards;
+        }
+
+        .score-pop.big { font-size: 27px; }
+        .score-pop.heal { color: #59e86f; }
+        .score-pop.head { color: #ffd24a; }
+
+        @keyframes popUp {
+            0% { opacity: 0; transform: translate(-50%, 14px) scale(.7); }
+            18% { opacity: 1; transform: translate(-50%, 0) scale(1.08); }
+            30% { transform: translate(-50%, -4px) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -48px) scale(.92); }
+        }
+
+        /* Seri kill yazısı */
+        #streak-txt {
+            position: absolute;
+            top: 30%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 42px;
+            font-weight: 800;
+            letter-spacing: 6px;
+            color: #fff;
+            text-shadow: 0 0 30px var(--accent-glow);
+            opacity: 0;
+            white-space: nowrap;
+        }
+
+        #streak-txt.show { animation: streakAnim 1.6s ease forwards; }
+
+        @keyframes streakAnim {
+            0% { opacity: 0; transform: translateX(-50%) scale(.6); }
+            15% { opacity: 1; transform: translateX(-50%) scale(1.12); }
+            30% { transform: translateX(-50%) scale(1); }
+            80% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        .rekor-line {
+            margin-top: 16px;
+            font-size: 16px;
+            letter-spacing: 2px;
+            font-weight: 700;
+            color: #ffd24a;
+        }
+
+        /* ================= MENÜLER ================= */
+        .menu {
+            position: fixed;
+            inset: 0;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(3, 5, 3, .66);
+            backdrop-filter: blur(14px) saturate(1.1);
+            -webkit-backdrop-filter: blur(14px) saturate(1.1);
+        }
+
+        .menu-inner {
+            text-align: center;
+            padding: 40px;
+            max-width: 720px;
+            animation: menuIn .45s cubic-bezier(.2, .9, .25, 1.2);
+        }
+
+        @keyframes menuIn {
+            from { opacity: 0; transform: translateY(26px) scale(.96); }
+        }
+
+        .menu-logo {
+            font-family: 'Inter', sans-serif;
+            font-size: clamp(52px, 9vw, 88px);
+            font-weight: 900;
+            letter-spacing: 4px;
+            color: #fff;
+            line-height: 1;
+        }
+
+        .menu-logo span {
+            color: var(--accent);
+            text-shadow: 0 0 40px var(--accent-glow);
+        }
+
+        .menu-tagline {
+            margin-top: 12px;
+            font-size: 17px;
+            letter-spacing: 4px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, .55);
+        }
+
+        .btn-play {
+            pointer-events: auto;
+            cursor: pointer;
+            display: inline-block;
+            margin-top: 34px;
+            padding: 17px 58px;
+            border: none;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #d7ff3d, #93cc00);
+            color: #101400;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 21px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            box-shadow: 0 10px 34px rgba(192, 255, 0, .28);
+            transition: transform .18s cubic-bezier(.2, .9, .3, 1.4), box-shadow .18s, filter .18s;
+        }
+
+        .btn-play:hover {
+            transform: translateY(-3px) scale(1.03);
+            box-shadow: 0 16px 48px rgba(192, 255, 0, .42);
+            filter: brightness(1.06);
+        }
+
+        .btn-play:active { transform: translateY(0) scale(.98); }
+
+        .btn-ghost {
+            pointer-events: auto;
+            cursor: pointer;
+            display: inline-block;
+            margin-top: 14px;
+            padding: 13px 40px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, .22);
+            background: rgba(255, 255, 255, .05);
+            color: rgba(255, 255, 255, .85);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            transition: all .18s;
+        }
+
+        .btn-ghost:hover {
+            border-color: var(--accent-glow);
+            color: var(--accent);
+            background: rgba(192, 255, 0, .07);
+        }
+
+        .controls-grid {
+            margin: 38px auto 0;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 11px;
+        }
+
+        .ctl {
+            background: rgba(255, 255, 255, .04);
+            border: 1px solid rgba(255, 255, 255, .09);
+            border-radius: 11px;
+            padding: 11px 8px 9px;
+        }
+
+        .ctl kbd {
+            display: inline-block;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--accent);
+            background: rgba(192, 255, 0, .08);
+            border: 1px solid rgba(192, 255, 0, .3);
+            border-radius: 6px;
+            padding: 4px 9px;
+            margin-bottom: 6px;
+            white-space: nowrap;
+        }
+
+        .ctl span {
+            display: block;
+            font-size: 13.5px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, .68);
+        }
+
+        .over-stats {
+            margin: 26px auto 0;
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 26px;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            color: rgba(255, 255, 255, .4);
+            text-decoration: none;
+            transition: color .2s;
+        }
+
+        .back-link:hover { color: var(--accent); }
+        .mobile-note { margin-top: 18px; font-size: 14px; color: #ffb020; letter-spacing: 1px; }
+
+        @media (max-width: 760px) {
+            .controls-grid { grid-template-columns: repeat(2, 1fr); }
+            #feed { right: 30px; top: 190px; }
+            #radar-wrap { width: 110px; height: 110px; }
+            #health-wrap { width: 200px; left: 22px; bottom: 24px; }
+            #ammo-wrap { right: 24px; bottom: 22px; }
+            #ammo-mag { font-size: 46px; }
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="game-canvas"></canvas>
+    <div id="vig"></div>
+    <div id="load-note"></div>
+
+    <!-- HUD -->
+    <div id="hud">
+        <div id="dmg"></div>
+        <div id="hit-dir"></div>
+        <div id="crosshair">
+            <span class="ch-t"></span><span class="ch-b"></span>
+            <span class="ch-l"></span><span class="ch-r"></span>
+            <span class="ch-dot"></span>
+        </div>
+        <div id="hitmarker"><span class="a"></span><span class="b"></span></div>
+        <div id="scope">
+            <div id="scope-ring"><i></i><i></i><i></i><i></i></div>
+        </div>
+        <div id="popups"></div>
+        <div id="streak-txt"></div>
+        <div id="fps-counter">60 FPS</div>
+
+        <div id="death-screen" class="hidden">
+            <div id="death-title">ELİMİNİZ ASYON</div>
+            <div id="death-by"></div>
+            <div id="death-count-wrap">YENİDEN DOĞUŞ: <span id="death-count">5</span></div>
+        </div>
+
+        <div id="net-block" class="hidden">
+            <div id="net-title">SUNUCUYA BAĞLANIYOR…</div>
+            <div id="net-sub">ARENA KİLİTLİ — BAĞLANTI BEKLENİYOR</div>
+        </div>
+
+        <div id="stats-wrap">
+            <div class="stat-chip"><div class="stat-val" id="stat-kills">0</div><div class="stat-lbl">KILL</div></div>
+            <div class="stat-chip" id="stat-online"><div class="stat-val">0</div><div class="stat-lbl">ONLINE</div></div>
+            <div class="stat-chip"><div class="stat-val" id="stat-deaths">0</div><div class="stat-lbl">ÖLÜM</div></div>
+        </div>
+
+        <div id="feed"></div>
+        <div id="radar-wrap"><canvas id="radar" width="150" height="150"></canvas></div>
+
+        <div id="health-wrap">
+            <div class="hp-top"><span class="hp-title">SAĞLIK</span><span id="hp-num">100</span></div>
+            <div class="hp-bar"><div id="hp-fill"></div></div>
+        </div>
+
+        <div id="ammo-wrap">
+            <div id="weapon-name">OX-19 // TAARRUZ TÜFEĞİ</div>
+            <div id="ammo-row"><span id="ammo-mag">30</span><span id="ammo-res">/ ∞</span></div>
+            <div id="reload-wrap"><div id="reload-fill"></div></div>
+            <div id="reload-hint">R — ŞARJÖR DEĞİŞTİR</div>
+        </div>
+    </div>
+
+    <!-- AYARLAR -->
+    <div id="menu-settings" class="menu hidden">
+        <div class="menu-inner settings-inner">
+            <div class="menu-logo" style="font-size:clamp(34px,6vw,54px)">AYAR<span>LAR</span></div>
+            <div class="settings-grid">
+                <div class="set-row">
+                    <span class="set-label">🕐 Zaman</span>
+                    <div class="seg" data-set="tod">
+                        <button data-val="gunduz">☀ Gündüz</button>
+                        <button data-val="aksam">🌆 Gün Batımı</button>
+                        <button data-val="gece">🌙 Gece</button>
+                    </div>
+                </div>
+                <div class="set-row">
+                    <span class="set-label">🎨 Vurgu Rengi</span>
+                    <div class="seg" data-set="accent">
+                        <button data-val="yesil">Yeşil</button>
+                        <button data-val="turuncu">Turuncu</button>
+                        <button data-val="mavi">Buz Mavisi</button>
+                    </div>
+                </div>
+                <div class="set-row">
+                    <span class="set-label">🖥 Grafik Kalitesi</span>
+                    <div class="seg" data-set="quality">
+                        <button data-val="dusuk">Düşük</button>
+                        <button data-val="orta">Orta</button>
+                        <button data-val="yuksek">Yüksek</button>
+                    </div>
+                </div>
+                <div class="set-row">
+                    <span class="set-label">🖱 Fare Hassasiyeti</span>
+                    <input type="range" id="set-sens" min="30" max="250" step="5" value="100">
+                    <span class="set-val" id="val-sens">%100</span>
+                </div>
+                <div class="set-row">
+                    <span class="set-label">👁 Görüş Açısı (FOV)</span>
+                    <input type="range" id="set-fov" min="60" max="110" step="1" value="75">
+                    <span class="set-val" id="val-fov">75</span>
+                </div>
+                <div class="set-row">
+                    <span class="set-label">🔊 Ses Seviyesi</span>
+                    <input type="range" id="set-vol" min="0" max="100" step="5" value="80">
+                    <span class="set-val" id="val-vol">%80</span>
+                </div>
+                <div class="set-row">
+                    <span class="set-label">📳 Ekran Sarsıntısı</span>
+                    <div class="seg" data-set="shake">
+                        <button data-val="1">Açık</button>
+                        <button data-val="0">Kapalı</button>
+                    </div>
+                </div>
+                <div class="set-row">
+                    <span class="set-label">📊 FPS Göstergesi</span>
+                    <div class="seg" data-set="fps">
+                        <button data-val="1">Açık</button>
+                        <button data-val="0">Kapalı</button>
+                    </div>
+                </div>
+            </div>
+            <button id="btn-settings-back" class="btn-play" style="margin-top:26px;padding:13px 44px">GERİ</button>
+        </div>
+    </div>
+
+    <!-- BAŞLANGIÇ MENÜSÜ -->
+    <div id="menu-start" class="menu">
+        <div class="menu-inner">
+            <div class="menu-logo">OXY<span>STRIKE</span></div>
+            <p class="menu-tagline">oxy ARENA • ÇEVRİMİÇİ TAKTİK FPS<br>
+                <span style="font-size:12px;letter-spacing:2px;color:rgba(192,255,0,.65)">SÜRÜM 11 • ONLINE ARENA • MOTOR GÖMÜLÜ DEĞİL</span></p>
+            <input id="name-input" class="name-input" maxlength="16" placeholder="OYUNCU ADINIZ" spellcheck="false" autocomplete="off">
+            <button id="btn-start" class="btn-play" style="margin-top:18px">▶ &nbsp;SAVAŞA GİR</button><br>
+            <button id="btn-settings-s" class="btn-ghost">⚙ &nbsp;AYARLAR</button>
+            <button id="btn-lb" class="btn-ghost">🏆 &nbsp;LİDERLİK TABLOSU</button>
+            <p class="rekor-line" id="menu-rekor"></p>
+            <div class="controls-grid">
+                <div class="ctl"><kbd>W A S D</kbd><span>Hareket</span></div>
+                <div class="ctl"><kbd>SPACE</kbd><span>Zıplama</span></div>
+                <div class="ctl"><kbd>CTRL / C</kbd><span>Eğilme</span></div>
+                <div class="ctl"><kbd>SHIFT</kbd><span>Koşma</span></div>
+                <div class="ctl"><kbd>SOL TIK</kbd><span>Ateş</span></div>
+                <div class="ctl"><kbd>SAĞ TIK</kbd><span>Dürbün</span></div>
+                <div class="ctl"><kbd>R</kbd><span>Şarjör</span></div>
+                <div class="ctl"><kbd>1·2·3 / TEKER</kbd><span>Silah Değiştir</span></div>
+                <div class="ctl"><kbd>ESC</kbd><span>Duraklat</span></div>
+            </div>
+            <p class="mobile-note hidden" id="mobile-note">⚠ En iyi deneyim için klavye + fare kullanın.</p>
+            <a class="back-link" href="index.php">← Oyunlara Dön</a>
+        </div>
+    </div>
+
+    <!-- LİDERLİK TABLOSU -->
+    <div id="menu-lb" class="menu hidden">
+        <div class="menu-inner">
+            <div class="menu-logo" style="font-size:clamp(30px,5vw,48px)">LİDERLİK<span>TABLOSU</span></div>
+            <p class="menu-tagline">EN YÜKSEK K/D ORANINA SAHİP SAVAŞÇILAR</p>
+            <div id="lb-list"></div>
+            <p id="lb-status" class="hidden"></p>
+            <button id="btn-lb-back" class="btn-play" style="margin-top:26px;padding:13px 44px">GERİ</button>
+        </div>
+    </div>
+
+    <!-- DURAKLATMA -->
+    <div id="menu-pause" class="menu hidden">
+        <div class="menu-inner">
+            <div class="menu-logo" style="font-size:clamp(40px,7vw,64px)">DURAK<span>LATILDI</span></div>
+            <p class="menu-tagline">NEFES AL, ARENA SENİ BEKLİYOR</p><br>
+            <button id="btn-resume" class="btn-play">DEVAM ET</button><br>
+            <button id="btn-restart-p" class="btn-ghost">YENİDEN BAŞLAT</button><br>
+            <button id="btn-settings-p" class="btn-ghost">⚙ &nbsp;AYARLAR</button>
+            <br><a class="back-link" href="index.php">← Oyunlara Dön</a>
+        </div>
+    </div>
+
+    <!-- THREE.js r128 (yerel dosya) -->
+    <script src="js/three.min.js?v=9"></script>
+    <script src="js/GLTFLoader.js"></script>
+    <script src="js/SkeletonUtils.js"></script>
+    <!-- ERKEN MENÜ & AYAR BAĞLANTILARI (motor yüklenmeden çalışır) -->
+    <script>
+        // Her hata ekranda görünsün (sessiz ölüm yok)
+        window.onerror = function (msg, src, line) {
+            try {
+                var e = document.getElementById('err-box');
+                if (!e) {
+                    e = document.createElement('div');
+                    e.id = 'err-box';
+                    e.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:9999;background:#7a1020;' +
+                        'color:#fff;font:12px/1.5 Consolas,monospace;padding:10px 14px;white-space:pre-wrap;max-height:38%;overflow:auto';
+                    document.body.appendChild(e);
+                }
+                e.textContent += '⚠ HATA: ' + msg + '  @ satır ' + line + '\n';
+            } catch (x) { }
+            return false;
+        };
+        window.addEventListener('unhandledrejection', function () { });
+
+        (function () {
+            var $ = function (id) { return document.getElementById(id); };
+
+            // ---- paylaşımlı ayar nesnesi ----
+            var S;
+            try { S = JSON.parse(localStorage.getItem('oxystrike_set') || '{}'); } catch (e) { S = {}; }
+            var DEF = { tod: 'gunduz', accent: 'yesil', quality: 'yuksek', sens: 100, fov: 75, vol: 80, shake: 1, fps: 0 };
+            for (var k in DEF) if (S[k] === undefined) S[k] = DEF[k];
+            window.__oxySettings = S;
+            window.__oxySaveS = function () {
+                try { localStorage.setItem('oxystrike_set', JSON.stringify(S)); } catch (e) { }
+            };
+
+            // ---- oyuncu adı (çereze kayıtlı) ----
+            function getCookie(n) {
+                var m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)'));
+                return m ? decodeURIComponent(m[1]) : '';
+            }
+            function setCookie(n, v) {
+                document.cookie = n + '=' + encodeURIComponent(v) + ';max-age=31536000;path=/';
+            }
+            var savedName = getCookie('oxy_name');
+            window.__oxyName = savedName;
+            var nameInput = document.getElementById('name-input');
+            if (nameInput) {
+                nameInput.value = savedName;
+                nameInput.addEventListener('input', function () {
+                    var v = nameInput.value.replace(/[<>]/g, '').slice(0, 16);
+                    if (v !== nameInput.value) nameInput.value = v;
+                    window.__oxyName = v.trim();
+                    setCookie('oxy_name', v.trim());
+                });
+            }
+
+            // ---- liderlik tablosu (sunucu /leaderboard, port 2000) ----
+            var LB_PORT = 2000;
+            document.getElementById('btn-lb').addEventListener('click', function () {
+                document.getElementById('menu-start').classList.add('hidden');
+                document.getElementById('menu-lb').classList.remove('hidden');
+                loadLB();
+            });
+            document.getElementById('btn-lb-back').addEventListener('click', function () {
+                document.getElementById('menu-lb').classList.add('hidden');
+                document.getElementById('menu-start').classList.remove('hidden');
+            });
+            function loadLB() {
+                var list = document.getElementById('lb-list');
+                var st = document.getElementById('lb-status');
+                list.innerHTML = '<div class="lb-row head"><span class="lb-rank">#</span>' +
+                    '<span class="lb-name">OYUNCU</span><span class="lb-k">KILL</span>' +
+                    '<span class="lb-d">ÖLÜM</span><span class="lb-kd">K/D</span></div>';
+                st.classList.add('hidden');
+                var lbUrl = location.protocol === 'https:'
+                    ? '/oxystrike/leaderboard'
+                    : location.protocol + '//' + location.hostname + ':' + LB_PORT + '/leaderboard';
+                fetch(lbUrl)
+                    .then(function (r) { return r.json(); })
+                    .then(function (rows) {
+                        if (!rows.length) {
+                            st.textContent = 'HENÜZ KİMSE YOK — İLK ŞANSLI SEN OL';
+                            st.classList.remove('hidden');
+                            return;
+                        }
+                        rows.forEach(function (row, i) {
+                            var d = document.createElement('div');
+                            d.className = 'lb-row';
+                            d.innerHTML = '<span class="lb-rank">' + (i + 1) + '</span>' +
+                                '<span class="lb-name"></span>' +
+                                '<span class="lb-k">' + (row.k || 0) + '</span>' +
+                                '<span class="lb-d">' + (row.d || 0) + '</span>' +
+                                '<span class="lb-kd">' + (+row.kd || 0) + '</span>';
+                            d.querySelector('.lb-name').textContent = row.name || '?';
+                            list.appendChild(d);
+                        });
+                    })
+                    .catch(function () {
+                        st.textContent = '⚠ SUNUCUYA ULAŞILAMADI (' + LB_PORT + ' PORTU AÇIK MI?)';
+                        st.classList.remove('hidden');
+                    });
+            }
+
+            // ---- menü aç / kapa ----
+            $('btn-settings-s').addEventListener('click', function () {
+                $('menu-start').classList.add('hidden');
+                $('menu-settings').classList.remove('hidden');
+                window.__setReturn = 'menu-start';
+            });
+            $('btn-settings-p').addEventListener('click', function () {
+                $('menu-pause').classList.add('hidden');
+                $('menu-settings').classList.remove('hidden');
+                window.__setReturn = 'menu-pause';
+            });
+            $('btn-settings-back').addEventListener('click', function () {
+                $('menu-settings').classList.add('hidden');
+                $(window.__setReturn || 'menu-start').classList.remove('hidden');
+            });
+
+            // ---- segment (aç/kapa) butonları ----
+            var segs = document.querySelectorAll('.seg[data-set]');
+            for (var si = 0; si < segs.length; si++) {
+                (function (seg) {
+                    var key = seg.getAttribute('data-set');
+                    var btns = seg.querySelectorAll('button');
+                    var sync = function () {
+                        for (var bi = 0; bi < btns.length; bi++)
+                            btns[bi].classList.toggle('on', String(S[key]) === btns[bi].getAttribute('data-val'));
+                    };
+                    sync();
+                    for (var bi = 0; bi < btns.length; bi++) {
+                        (function (b) {
+                            b.addEventListener('click', function () {
+                                var v = b.getAttribute('data-val');
+                                if (v === '1' || v === '0') v = +v;
+                                S[key] = v;
+                                window.__oxySaveS();
+                                sync();
+                                if (window.__oxyBooted && window.__oxyApply) {
+                                    if (key === 'tod') window.__oxyApply.tod(v);
+                                    if (key === 'quality') window.__oxyApply.quality();
+                                    if (key === 'accent') window.__oxyApply.accent();
+                                }
+                                if (key === 'fps') $('fps-counter').classList.toggle('show', !!S.fps);
+                            });
+                        })(btns[bi]);
+                    }
+                })(segs[si]);
+            }
+
+            // ---- sliderlar ----
+            var ranges = [
+                ['set-sens', 'val-sens', 'sens', function (v) { return '%' + v; }],
+                ['set-fov', 'val-fov', 'fov', function (v) { return '' + v; }],
+                ['set-vol', 'val-vol', 'vol', function (v) { return '%' + v; }]
+            ];
+            for (var ri = 0; ri < ranges.length; ri++) {
+                (function (cfg) {
+                    var el = $(cfg[0]);
+                    el.value = S[cfg[2]];
+                    $(cfg[1]).textContent = cfg[3](S[cfg[2]]);
+                    el.addEventListener('input', function () {
+                        S[cfg[2]] = +el.value;
+                        window.__oxySaveS();
+                        $(cfg[1]).textContent = cfg[3](el.value);
+                        if (window.__oxyBooted && window.__oxyApply) {
+                            if (cfg[2] === 'fov') window.__oxyApply.fov(+el.value);
+                            if (cfg[2] === 'vol') window.__oxyApply.vol();
+                        }
+                    });
+                })(ranges[ri]);
+            }
+
+            // fps göstergesi ilk durumu
+            $('fps-counter').classList.toggle('show', !!S.fps);
+
+            // ---- başlat ----
+            $('btn-start').addEventListener('click', function () {
+                if (window.__oxyStart) window.__oxyStart();
+                else {
+                    window.__oxyStartPending = true;
+                    var n = $('load-note');
+                    n.textContent = '⏳ OYUN MOTORU YÜKLENİYOR…';
+                    n.classList.add('show');
+                }
+            });
+        })();
+    </script>
+    <script>
+        window.__initGame = function () {
+            'use strict';
+            if (typeof THREE === 'undefined' || window.__oxyBooted) return;
+            window.__oxyBooted = true;
+
+            // ================= YARDIMCILAR =================
+            const V3 = (x, y, z) => new THREE.Vector3(x || 0, y || 0, z || 0);
+            const rand = (a, b) => a + Math.random() * (b - a);
+            const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+            const lerp = (a, b, t) => a + (b - a) * t;
+            const $ = id => document.getElementById(id);
+
+            // ================= SAHNE / RENDERER =================
+            const canvas = $('game-canvas');
+            const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+            renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+            renderer.setSize(innerWidth, innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.05;
+            renderer.autoClear = false;
+
+            const scene = new THREE.Scene();
+            const SKY = 0x0a1016;
+            scene.background = new THREE.Color(SKY);
+            scene.fog = new THREE.Fog(SKY, 35, 150);
+
+            const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 500);
+            camera.rotation.order = 'YXZ';
+            scene.add(camera);
+
+            // SİLAH KATMANI: dünya sahnesinden ayrı render edilir → duvara giremez
+            const wScene = new THREE.Scene();
+            const wCamera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .01, 10);
+            wScene.add(new THREE.HemisphereLight(0x8fa3b8, 0x1a1d14, 1.05));
+            const wDir = new THREE.DirectionalLight(0xfff4e0, .9);
+            wDir.position.set(-.6, 1, .4);
+            wScene.add(wDir);
+
+            addEventListener('resize', () => {
+                camera.aspect = innerWidth / innerHeight;
+                camera.updateProjectionMatrix();
+                wCamera.aspect = innerWidth / innerHeight;
+                wCamera.updateProjectionMatrix();
+                renderer.setSize(innerWidth, innerHeight);
+            });
+
+            // Işıklar
+            const hemi = new THREE.HemisphereLight(0x51677f, 0x0c1008, 0.9);
+            scene.add(hemi);
+            const sun = new THREE.DirectionalLight(0xdfe9ff, 0.85);
+            sun.position.set(45, 65, 28);
+            sun.castShadow = true;
+            sun.shadow.mapSize.set(2048, 2048);
+            sun.shadow.camera.left = -75; sun.shadow.camera.right = 75;
+            sun.shadow.camera.top = 75; sun.shadow.camera.bottom = -75;
+            sun.shadow.camera.far = 200;
+            sun.shadow.camera.updateProjectionMatrix();
+            scene.add(sun);
+
+            // ================= AYARLAR (erken script ile paylaşılır) =================
+            const S = window.__oxySettings;
+            const saveS = window.__oxySaveS;
+
+            const ACCENTS = { yesil: '#c0ff00', turuncu: '#ffb340', mavi: '#5fd4ff' };
+            const ACCENT_HEX = () => ACCENTS[S.accent] || ACCENTS.yesil;
+
+            // Gökyüzü kubbesi (gradyan shader)
+            const skyMat = new THREE.ShaderMaterial({
+                side: THREE.BackSide,
+                uniforms: { top: { value: new THREE.Color(0x7fa8cf) }, bottom: { value: new THREE.Color(0xd8e6ee) } },
+                vertexShader: 'varying vec3 vP;void main(){vP=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+                fragmentShader: 'varying vec3 vP;uniform vec3 top;uniform vec3 bottom;void main(){float h=clamp(normalize(vP).y*.5+.5,0.0,1.0);gl_FragColor=vec4(mix(bottom,top,pow(h,.75)),1.0);}'
+            });
+            scene.add(new THREE.Mesh(new THREE.SphereGeometry(420, 24, 14), skyMat));
+            scene.background = null;
+
+            // Yıldızlar
+            const starGeo = new THREE.BufferGeometry();
+            const starPos = new Float32Array(650 * 3);
+            for (let i = 0; i < 650; i++) {
+                const th = rand(0, Math.PI * 2), ph = rand(.12, 1.35), r = 400;
+                starPos[i * 3] = Math.cos(th) * Math.sin(ph) * r;
+                starPos[i * 3 + 1] = Math.cos(ph) * r;
+                starPos[i * 3 + 2] = Math.sin(th) * Math.sin(ph) * r;
+            }
+            starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+            const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({
+                color: 0xcfe0ff, size: 1.7, sizeAttenuation: false, transparent: true, opacity: 0, fog: false
+            }));
+            scene.add(stars);
+
+            // Güneş / Ay diski
+            const sunDisc = new THREE.Mesh(new THREE.CircleGeometry(20, 26),
+                new THREE.MeshBasicMaterial({ color: 0xfff2cf, fog: false }));
+            scene.add(sunDisc);
+
+            // Güneş parıltısı
+            function glowTexture() {
+                const c = document.createElement('canvas'); c.width = c.height = 128;
+                const g = c.getContext('2d');
+                const rg = g.createRadialGradient(64, 64, 4, 64, 64, 62);
+                rg.addColorStop(0, 'rgba(255,250,230,.9)');
+                rg.addColorStop(.4, 'rgba(255,210,140,.28)');
+                rg.addColorStop(1, 'rgba(255,190,110,0)');
+                g.fillStyle = rg; g.fillRect(0, 0, 128, 128);
+                return new THREE.CanvasTexture(c);
+            }
+            const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+                map: glowTexture(), transparent: true, opacity: .8, depthWrite: false, fog: false
+            }));
+            scene.add(sunGlow);
+
+            // Hacimli bulutlar
+            function cloudTexture() {
+                const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+                const g = c.getContext('2d');
+                for (let i = 0; i < 26; i++) {
+                    const x = rand(40, 216), y = rand(42, 86), r = rand(14, 34);
+                    const rg = g.createRadialGradient(x, y, 1, x, y, r);
+                    rg.addColorStop(0, 'rgba(255,255,255,.85)');
+                    rg.addColorStop(1, 'rgba(255,255,255,0)');
+                    g.fillStyle = rg;
+                    g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+                }
+                return new THREE.CanvasTexture(c);
+            }
+            const cloudMats = [], cloudSprites = [];
+            (function buildClouds() {
+                const ct = cloudTexture();
+                for (let i = 0; i < 10; i++) {
+                    const m = new THREE.SpriteMaterial({ map: ct, transparent: true, opacity: .5, depthWrite: false, fog: false });
+                    cloudMats.push(m);
+                    const sp = new THREE.Sprite(m);
+                    const a = rand(0, 6.28), r = rand(70, 150);
+                    sp.position.set(Math.cos(a) * r, rand(52, 86), Math.sin(a) * r);
+                    sp.scale.set(rand(34, 62), rand(13, 22), 1);
+                    scene.add(sp);
+                    cloudSprites.push(sp);
+                }
+            })();
+
+            // Uzak şehir silueti
+            (function buildSkyline() {
+                const bm = new THREE.MeshStandardMaterial({ color: 0x11161d, roughness: .95 });
+                for (let i = 0; i < 16; i++) {
+                    const a = i / 16 * Math.PI * 2 + rand(-.12, .12);
+                    const r = rand(105, 165);
+                    const h = rand(10, 46), w = rand(9, 22);
+                    const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), bm);
+                    b.position.set(Math.cos(a) * r, h / 2 - 2, Math.sin(a) * r);
+                    b.rotation.y = rand(0, Math.PI);
+                    scene.add(b);
+                }
+            })();
+
+            // Ortam yansımaları (PMREM — metaller gökyüzünü yansıtır)
+            try {
+                const pmrem = new THREE.PMREMGenerator(renderer);
+                const es = new THREE.Scene();
+                es.add(new THREE.Mesh(new THREE.SphereGeometry(100, 16, 10), skyMat));
+                scene.environment = pmrem.fromScene(es, .04).texture;
+            } catch (e) { }
+
+            // Zaman ayarı (gündüz / gün batımı / gece)
+            const TOD = {
+                gunduz: { top: 0x7fa8cf, bot: 0xd8e6ee, hemi: .95, hs: 0xcfe0f2, hg: 0x5c6650, si: 1.2, sc: 0xfff1da, fx: 0xc2d3de, ff: 230, st: 0, sp: [45, 65, 28], disc: 0xfff2cf, ds: 1, ex: 1.02 },
+                aksam: { top: 0x241a3e, bot: 0xff8e58, hemi: .5, hs: 0xd98a62, hg: 0x2c251e, si: .9, sc: 0xff8845, fx: 0x96604f, ff: 175, st: .4, sp: [80, 16, -50], disc: 0xffab66, ds: 1.25, ex: 1.1 },
+                gece: { top: 0x03050c, bot: 0x0c1424, hemi: .26, hs: 0x36486e, hg: 0x090c07, si: .3, sc: 0xa9c6ff, fx: 0x060a12, ff: 135, st: 1, sp: [-60, 60, -35], disc: 0xdfe9ff, ds: .5, ex: 1.16 }
+            };
+            function applyTOD(key) {
+                const p = TOD[key] || TOD.gunduz;
+                S.tod = key; saveS();
+                skyMat.uniforms.top.value.setHex(p.top);
+                skyMat.uniforms.bottom.value.setHex(p.bot);
+                hemi.intensity = p.hemi;
+                hemi.color.setHex(p.hs);
+                hemi.groundColor.setHex(p.hg);
+                sun.intensity = p.si;
+                sun.color.setHex(p.sc);
+                sun.position.set(p.sp[0], p.sp[1], p.sp[2]);
+                scene.fog.color.setHex(p.fx);
+                scene.fog.far = p.ff;
+                scene.fog.near = key === 'gece' ? 22 : 35;
+                stars.material.opacity = p.st;
+                sunDisc.material.color.setHex(p.disc);
+                sunDisc.scale.setScalar(p.ds);
+                const sl = Math.hypot(p.sp[0], p.sp[1], p.sp[2]);
+                sunDisc.position.set(p.sp[0] / sl * 400, p.sp[1] / sl * 400, p.sp[2] / sl * 400);
+                sunDisc.lookAt(0, 0, 0);
+                sunGlow.position.copy(sunDisc.position);
+                const CC = { gunduz: [.5, 0xffffff], aksam: [.42, 0xffb08a], gece: [.1, 0x39465c] };
+                const cc = CC[key] || CC.gunduz;
+                for (const cm of cloudMats) { cm.opacity = cc[0]; cm.color.setHex(cc[1]); }
+                renderer.toneMappingExposure = p.ex;
+            }
+            function applyQuality() {
+                const q = S.quality;
+                renderer.setPixelRatio(Math.min(devicePixelRatio, q === 'dusuk' ? 1 : (q === 'orta' ? 1.5 : 2)));
+                const sz = q === 'dusuk' ? 1024 : 2048;
+                sun.shadow.mapSize.set(sz, sz);
+                if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+            }
+            function applyVol() {
+                S.vol = clamp(S.vol, 0, 100); saveS();
+                if (masterGain) masterGain.gain.value = S.vol / 100;
+            }
+
+            // ================= ARENA =================
+            const ARENA = 62;
+            const colliders = [];   // {minX,maxX,minZ,maxZ}
+            const solids = [];      // mermi raycast hedefleri
+
+            function gridTexture() {
+                const c = document.createElement('canvas'); c.width = c.height = 1024;
+                const g = c.getContext('2d');
+                g.fillStyle = '#141b13'; g.fillRect(0, 0, 1024, 1024);
+                // organik leke katmanları
+                for (let i = 0; i < 60; i++) {
+                    g.fillStyle = 'rgba(' + (rand(10, 30) | 0) + ',' + (rand(22, 42) | 0) + ',' + (rand(10, 24) | 0) + ',0.18)';
+                    g.beginPath();
+                    g.ellipse(rand(0, 1024), rand(0, 1024), rand(30, 130), rand(20, 90), rand(0, 3), 0, 7);
+                    g.fill();
+                }
+                // çakıl benekleri
+                for (let i = 0; i < 2600; i++) {
+                    g.fillStyle = Math.random() > .5 ? 'rgba(255,255,255,' + rand(.02, .07) + ')' : 'rgba(0,0,0,' + rand(.04, .12) + ')';
+                    g.fillRect(rand(0, 1024), rand(0, 1024), rand(1, 3.4), rand(1, 3.4));
+                }
+                // lastik izleri
+                g.strokeStyle = 'rgba(0,0,0,0.1)';
+                for (let i = 0; i < 5; i++) {
+                    g.lineWidth = rand(8, 16);
+                    g.beginPath();
+                    g.moveTo(rand(0, 1024), rand(0, 1024));
+                    g.bezierCurveTo(rand(0, 1024), rand(0, 1024), rand(0, 1024), rand(0, 1024), rand(0, 1024), rand(0, 1024));
+                    g.stroke();
+                }
+                // çatlaklar
+                g.strokeStyle = 'rgba(0,0,0,0.16)'; g.lineWidth = 1.4;
+                for (let i = 0; i < 26; i++) {
+                    let x = rand(0, 1024), y = rand(0, 1024);
+                    g.beginPath(); g.moveTo(x, y);
+                    for (let j = 0; j < 5; j++) { x += rand(-40, 40); y += rand(-40, 40); g.lineTo(x, y); }
+                    g.stroke();
+                }
+                // neon ızgara
+                g.strokeStyle = 'rgba(192,255,0,0.07)'; g.lineWidth = 3;
+                for (let i = 0; i <= 8; i++) {
+                    const p = i * 128;
+                    g.beginPath(); g.moveTo(p, 0); g.lineTo(p, 1024); g.stroke();
+                    g.beginPath(); g.moveTo(0, p); g.lineTo(1024, p); g.stroke();
+                }
+                const t = new THREE.CanvasTexture(c);
+                t.wrapS = t.wrapT = THREE.RepeatWrapping;
+                t.repeat.set(12, 12);
+                t.anisotropy = 8;
+                return t;
+            }
+
+            const ground = new THREE.Mesh(
+                new THREE.PlaneGeometry(ARENA * 2, ARENA * 2),
+                new THREE.MeshStandardMaterial({ map: gridTexture(), roughness: .95 }));
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+            solids.push(ground);
+
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0x20262e, roughness: .88 });
+            [[0, -ARENA, ARENA * 2 + 2, 1], [0, ARENA, ARENA * 2 + 2, 1],
+             [-ARENA, 0, 1, ARENA * 2 + 2], [ARENA, 0, 1, ARENA * 2 + 2]].forEach(w => {
+                const m = new THREE.Mesh(new THREE.BoxGeometry(w[2], 7, w[3]), wallMat);
+                m.position.set(w[0], 3.5, w[1]);
+                m.castShadow = m.receiveShadow = true;
+                scene.add(m); solids.push(m);
+            });
+
+            function makeSurfaceTex(kind) {
+                const c = document.createElement('canvas'); c.width = c.height = 256;
+                const g = c.getContext('2d');
+                if (kind === 'wood') {
+                    g.fillStyle = '#5d4630'; g.fillRect(0, 0, 256, 256);
+                    for (let y = 0; y < 4; y++) {
+                        g.fillStyle = 'rgba(0,0,0,' + (.14 + (y % 2) * .06) + ')';
+                        g.fillRect(0, y * 64, 256, 3);
+                        g.fillStyle = 'rgba(255,220,170,0.06)';
+                        g.fillRect(0, y * 64 + 3, 256, 2);
+                        for (let i = 0; i < 24; i++) {
+                            g.strokeStyle = 'rgba(40,25,12,' + rand(.08, .25) + ')';
+                            g.lineWidth = 1;
+                            const yy = y * 64 + rand(8, 58);
+                            g.beginPath();
+                            g.moveTo(0, yy);
+                            g.bezierCurveTo(80, yy + rand(-5, 5), 170, yy + rand(-5, 5), 256, yy + rand(-4, 4));
+                            g.stroke();
+                        }
+                        g.fillStyle = 'rgba(20,12,6,.8)';
+                        g.fillRect(12, y * 64 + 30, 3, 3);
+                        g.fillRect(240, y * 64 + 30, 3, 3);
+                    }
+                } else if (kind === 'metal') {
+                    g.fillStyle = '#37424e'; g.fillRect(0, 0, 256, 256);
+                    for (let x = 0; x < 256; x += 24) {
+                        g.fillStyle = 'rgba(255,255,255,0.06)';
+                        g.fillRect(x, 0, 9, 256);
+                        g.fillStyle = 'rgba(0,0,0,0.22)';
+                        g.fillRect(x + 18, 0, 6, 256);
+                    }
+                    g.fillStyle = 'rgba(210,215,225,0.5)';
+                    for (let x = 12; x < 256; x += 24) { g.fillRect(x, 8, 3, 3); g.fillRect(x, 245, 3, 3); }
+                    for (let i = 0; i < 40; i++) {
+                        g.strokeStyle = 'rgba(0,0,0,' + rand(.05, .18) + ')';
+                        g.lineWidth = 1;
+                        const x = rand(0, 256), y = rand(0, 256);
+                        g.beginPath(); g.moveTo(x, y); g.lineTo(x + rand(-26, 26), y + rand(-6, 6)); g.stroke();
+                    }
+                } else {
+                    // beton
+                    g.fillStyle = '#88897f'; g.fillRect(0, 0, 256, 256);
+                    for (let i = 0; i < 1400; i++) {
+                        g.fillStyle = Math.random() > .5 ? 'rgba(255,255,255,' + rand(.02, .08) + ')' : 'rgba(0,0,0,' + rand(.03, .1) + ')';
+                        g.fillRect(rand(0, 256), rand(0, 256), rand(1, 2.6), rand(1, 2.6));
+                    }
+                    g.strokeStyle = 'rgba(0,0,0,.2)'; g.lineWidth = 1;
+                    for (let i = 0; i < 8; i++) {
+                        let x = rand(0, 256), y = rand(0, 256);
+                        g.beginPath(); g.moveTo(x, y);
+                        for (let j = 0; j < 4; j++) { x += rand(-30, 30); y += rand(-30, 30); g.lineTo(x, y); }
+                        g.stroke();
+                    }
+                }
+                return new THREE.CanvasTexture(c);
+            }
+
+            const crateMats = [
+                new THREE.MeshStandardMaterial({ map: makeSurfaceTex('wood'), roughness: .9 }),
+                new THREE.MeshStandardMaterial({ map: makeSurfaceTex('wood'), color: 0xbfa07a, roughness: .9 }),
+                new THREE.MeshStandardMaterial({ map: makeSurfaceTex('metal'), roughness: .55, metalness: .45 }),
+                new THREE.MeshStandardMaterial({ map: makeSurfaceTex('conc'), roughness: .95 })
+            ];
+
+            // duvarlara beton doku
+            const wallTexC = makeSurfaceTex('conc');
+            wallTexC.wrapS = wallTexC.wrapT = THREE.RepeatWrapping;
+            wallTexC.repeat.set(10, 1);
+            wallMat.map = wallTexC;
+            wallMat.color.setHex(0xbfc5cc);
+            wallMat.needsUpdate = true;
+
+            function block(x, z, w, d, h, mat) {
+                const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+                m.position.set(x, h / 2, z);
+                m.rotation.y = rand(-.05, .05);
+                m.castShadow = m.receiveShadow = true;
+                scene.add(m); solids.push(m);
+                colliders.push({ minX: x - w / 2 - .15, maxX: x + w / 2 + .15, minZ: z - d / 2 - .15, maxZ: z + d / 2 + .15, h: h });
+            }
+
+            [
+                [-20, -10, 6, 2.4, 2.6], [20, -10, 6, 2.4, 2.6], [-20, 13, 2.4, 6, 2.6], [20, 13, 2.4, 6, 2.6],
+                [0, -25, 11, 2, 3], [0, 25, 11, 2, 3], [-33, 0, 2, 10, 3], [33, 0, 2, 10, 3],
+                [-8, -5, 2.2, 2.2, 2.2], [9, 6, 2.2, 2.2, 2.2], [11, -19, 3, 3, 1.3], [-11, 20, 3, 3, 1.3],
+                [-30, -29, 3.4, 3.4, 3.4], [30, 29, 3.4, 3.4, 3.4], [29, -31, 3.4, 3.4, 3.4], [-29, 31, 3.4, 3.4, 3.4],
+                [42, -42, 2, 2, 2.4], [-42, 42, 2, 2, 2.4], [-44, -20, 2, 2, 2.4], [44, 20, 2, 2, 2.4],
+                [0, 8, 4.5, 4.5, 1.1]
+            ].forEach((o, i) => block(o[0], o[1], o[2], o[3], o[4], crateMats[i % 4]));
+
+            // Ekstra detay: variller ve beton bariyerler
+            const neonMats = [];
+            const rimM = new THREE.MeshStandardMaterial({ color: 0x1c2026, roughness: .6, metalness: .5 });
+            const barrelMatA = new THREE.MeshStandardMaterial({ map: makeSurfaceTex('metal'), color: 0xa33c30, roughness: .5, metalness: .5 });
+            const barrelMatB = new THREE.MeshStandardMaterial({ map: makeSurfaceTex('metal'), color: 0x2e5a46, roughness: .5, metalness: .5 });
+            function barrel(x, z, mat) {
+                const grp = new THREE.Group();
+                const body = new THREE.Mesh(new THREE.CylinderGeometry(.42, .42, 1.15, 14), mat);
+                body.position.y = .575; body.castShadow = body.receiveShadow = true;
+                const r1 = new THREE.Mesh(new THREE.CylinderGeometry(.455, .455, .08, 14), rimM); r1.position.y = .92;
+                const r2 = r1.clone(); r2.position.y = .24;
+                grp.add(body, r1, r2);
+                grp.position.set(x, 0, z);
+                scene.add(grp);
+                solids.push(body);
+                colliders.push({ minX: x - .5, maxX: x + .5, minZ: z - .5, maxZ: z + .5, h: 1.15 });
+            }
+            const concMat = new THREE.MeshStandardMaterial({ map: makeSurfaceTex('conc'), roughness: .95 });
+            function barrier(x, z, rot) {
+                const m = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.05, .55), concMat);
+                m.position.set(x, .52, z); m.rotation.y = rot;
+                m.castShadow = m.receiveShadow = true;
+                scene.add(m); solids.push(m);
+                const long = Math.abs(Math.cos(rot)) > Math.abs(Math.sin(rot));
+                const hw = long ? 1.45 : .45, hd = long ? .45 : 1.45;
+                colliders.push({ minX: x - hw, maxX: x + hw, minZ: z - hd, maxZ: z + hd, h: 1.05 });
+            }
+            barrel(-14, -18, barrelMatA); barrel(-13.1, -17.2, barrelMatB); barrel(-14.6, -16.8, barrelMatA);
+            barrel(16, 19, barrelMatB); barrel(16.9, 18.2, barrelMatA); barrel(15.4, 18.6, barrelMatB);
+            barrel(27, -8, barrelMatA); barrel(-27, 9, barrelMatB); barrel(4, -32, barrelMatB); barrel(-5, 33, barrelMatA);
+            barrier(-6, 12, 0); barrier(7, -13, 0); barrier(24, 2, Math.PI / 2); barrier(-24, -3, Math.PI / 2); barrier(0, -8, .4);
+
+            // duvar diplerinde tehlike şeritleri
+            function hazardTexture() {
+                const c = document.createElement('canvas'); c.width = 128; c.height = 32;
+                const g = c.getContext('2d');
+                g.fillStyle = '#c8b419'; g.fillRect(0, 0, 128, 32);
+                g.fillStyle = '#15161a';
+                for (let x = -32; x < 160; x += 32) {
+                    g.beginPath();
+                    g.moveTo(x, 32); g.lineTo(x + 16, 0); g.lineTo(x + 32, 0); g.lineTo(x + 16, 32);
+                    g.closePath(); g.fill();
+                }
+                const t = new THREE.CanvasTexture(c);
+                t.wrapS = THREE.RepeatWrapping;
+                t.repeat.set(50, 1);
+                return t;
+            }
+            const hazMat = new THREE.MeshBasicMaterial({ map: hazardTexture() });
+            [[0, -ARENA], [0, ARENA], [-ARENA, 0], [ARENA, 0]].forEach((w, wi) => {
+                const horiz = wi < 2;
+                const m = new THREE.Mesh(
+                    new THREE.BoxGeometry(horiz ? ARENA * 2 : .22, .5, horiz ? .22 : ARENA * 2), hazMat);
+                m.position.set(
+                    w[0] + (horiz ? 0 : (w[0] > 0 ? -.64 : .64)), .25,
+                    w[1] + (horiz ? (w[1] > 0 ? -.64 : .64) : 0));
+                scene.add(m);
+            });
+
+            // zemin çakılları (instanced)
+            try {
+                const rockGeo = new THREE.DodecahedronGeometry(.15, 0);
+                const rockMat = new THREE.MeshStandardMaterial({ color: 0x6a6d62, roughness: .95 });
+                const rocks = new THREE.InstancedMesh(rockGeo, rockMat, 140);
+                const dummy = new THREE.Object3D();
+                let placed = 0;
+                for (let i = 0; i < 400 && placed < 140; i++) {
+                    const rx = rand(-ARENA + 2, ARENA - 2), rz = rand(-ARENA + 2, ARENA - 2);
+                    let bad = false;
+                    for (const c of colliders) {
+                        if (rx > c.minX - .5 && rx < c.maxX + .5 && rz > c.minZ - .5 && rz < c.maxZ + .5) { bad = true; break; }
+                    }
+                    if (bad) continue;
+                    dummy.position.set(rx, rand(.03, .1), rz);
+                    dummy.rotation.set(rand(0, 3), rand(0, 3), rand(0, 3));
+                    dummy.scale.setScalar(rand(.5, 1.7));
+                    dummy.updateMatrix();
+                    rocks.setMatrixAt(placed++, dummy.matrix);
+                }
+                rocks.count = placed;
+                rocks.receiveShadow = true;
+                scene.add(rocks);
+            } catch (e) { }
+
+            function neonPillar(x, z) {
+                const p = new THREE.Mesh(
+                    new THREE.BoxGeometry(.3, 4.4, .3),
+                    new THREE.MeshStandardMaterial({ color: 0x11150d, roughness: .7 }));
+                p.position.set(x, 2.2, z); p.castShadow = true;
+                const lm = new THREE.MeshBasicMaterial({ color: ACCENT_HEX() });
+                neonMats.push(lm);
+                const l = new THREE.Mesh(new THREE.BoxGeometry(.34, 3.6, .1), lm);
+                l.position.set(0, .1, .16); p.add(l);
+                scene.add(p);
+            }
+            [[-ARENA + 3, -ARENA + 3], [ARENA - 3, ARENA - 3], [ARENA - 3, -ARENA + 3],
+             [-ARENA + 3, ARENA - 3], [0, -ARENA + 4], [0, ARENA - 4]].forEach(p => neonPillar(p[0], p[1]));
+
+            // ================= SİLAHLAR (VIEWMODEL) =================
+            const weaponRoot = new THREE.Group();
+            wScene.add(weaponRoot);
+
+            const gunDark = new THREE.MeshStandardMaterial({ color: 0x15181d, roughness: .45, metalness: .65 });
+            const gunMid = new THREE.MeshStandardMaterial({ color: 0x242a31, roughness: .5, metalness: .5 });
+            const gunAccent = new THREE.MeshStandardMaterial({ color: 0xc0ff00, emissive: 0x2e4400, roughness: .4 });
+            const steel = new THREE.MeshStandardMaterial({ color: 0x333a44, roughness: .22, metalness: .95 });
+            const steelDark = new THREE.MeshStandardMaterial({ color: 0x191d23, roughness: .3, metalness: .9 });
+            const brassMat = new THREE.MeshStandardMaterial({ color: 0xb98a3a, roughness: .32, metalness: .9 });
+            const rubberMat = new THREE.MeshStandardMaterial({ color: 0x14161a, roughness: .88 });
+            const edgeMat = new THREE.MeshBasicMaterial({ color: 0xdfe6ee });
+
+            function mbox(parent, geo, mat, x, y, z) {
+                const m = new THREE.Mesh(geo, mat);
+                m.position.set(x, y, z); parent.add(m); return m;
+            }
+            function wbox(parent, w, h, d, x, y, z, mat, rx) {
+                return mbox(parent, new THREE.BoxGeometry(w, h, d), mat || gunDark, x, y, z);
+            }
+            function flashTexture() {
+                const c = document.createElement('canvas'); c.width = c.height = 128;
+                const g = c.getContext('2d');
+                const rg = g.createRadialGradient(64, 64, 2, 64, 64, 62);
+                rg.addColorStop(0, 'rgba(255,255,235,1)');
+                rg.addColorStop(.25, 'rgba(255,205,110,.9)');
+                rg.addColorStop(.6, 'rgba(255,120,30,.35)');
+                rg.addColorStop(1, 'rgba(255,80,0,0)');
+                g.fillStyle = rg; g.fillRect(0, 0, 128, 128);
+                return new THREE.CanvasTexture(c);
+            }
+            function makeFlash(parent, z, size) {
+                const f = new THREE.Mesh(new THREE.PlaneGeometry(size, size),
+                    new THREE.MeshBasicMaterial({ map: flashTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+                f.position.set(0, .01, z); f.visible = false; parent.add(f); return f;
+            }
+            function makeFlashLight(parent, z) {
+                const l = new THREE.PointLight(0xffc866, 0, 9);
+                l.position.set(0, .01, z); parent.add(l); return l;
+            }
+
+            // ---- SLOT 1: OX-19 taarruz tüfeği ----
+            const rifleM = new THREE.Group();
+            weaponRoot.add(rifleM);
+            wbox(rifleM, .07, .11, .46, 0, 0, -.05);              // gövde
+            wbox(rifleM, .055, .06, .34, 0, .015, -.36, gunMid);  // üst kızak
+            const rifleBarrel = mbox(rifleM, new THREE.CylinderGeometry(.016, .016, .32, 10), gunDark, 0, .005, -.54);
+            rifleBarrel.rotation.x = Math.PI / 2;
+            wbox(rifleM, .05, .13, .055, 0, -.115, .04, gunMid, .35); // kabza
+            wbox(rifleM, .046, .17, .075, 0, -.125, -.15);        // şarjör
+            wbox(rifleM, .06, .065, .2, 0, 0, .23, gunMid);       // dipçik
+            wbox(rifleM, .065, .09, .03, 0, -.01, .34, gunDark);  // dipçik pedi
+            wbox(rifleM, .02, .05, .03, 0, .085, -.12, gunAccent);// arpacık
+            const dotRing = new THREE.Mesh(new THREE.TorusGeometry(.032, .007, 8, 18), gunDark);
+            dotRing.position.set(0, .098, -.02); rifleM.add(dotRing);
+            const dotInner = new THREE.Mesh(new THREE.SphereGeometry(.008, 8, 8),
+                new THREE.MeshBasicMaterial({ color: 0xff3030 }));
+            dotInner.position.set(0, .098, -.02); rifleM.add(dotInner);
+            for (let i = 0; i < 7; i++) wbox(rifleM, .052, .012, .02, 0, .052, -.3 + i * .07, gunMid);
+            wbox(rifleM, .052, .02, .06, 0, -.16, -.02, gunMid);
+            wbox(rifleM, .05, .012, .06, 0, -.09, -.15, gunMid);
+            wbox(rifleM, .015, .015, .09, .045, .03, -.1, gunDark);
+            const muzzleLight = makeFlashLight(rifleM, -.72);
+            const flashSprite = makeFlash(rifleM, -.76, .42);
+            let flashT = 0;
+            // ---- SLOT 2: Desert Eagle .50 ----
+            const deagleM = new THREE.Group();
+            weaponRoot.add(deagleM);
+            deagleM.visible = false;
+            wbox(deagleM, .08, .085, .30, 0, .02, -.10, steel);        // sürgü
+            wbox(deagleM, .062, .028, .27, 0, .068, -.09, steelDark);  // sürgü üstü
+            wbox(deagleM, .05, .014, .12, 0, .045, -.05, brassMat);    // pirinç süsleme
+            const dgNamlu = mbox(deagleM, new THREE.CylinderGeometry(.021, .021, .06, 12), steelDark, 0, .008, -.27);
+            dgNamlu.rotation.x = Math.PI / 2;
+            wbox(deagleM, .07, .075, .17, 0, -.03, -.03, gunMid);      // gövde
+            wbox(deagleM, .055, .175, .10, 0, -.135, .055, gunDark, .3);   // kabza
+            wbox(deagleM, .05, .02, .105, 0, -.228, .078, rubberMat, .3);  // kabza tabanı
+            wbox(deagleM, .02, .05, .03, 0, .108, -.235, gunAccent);   // arpacık
+            wbox(deagleM, .042, .035, .025, 0, .104, .028, gunDark);   // arka gez
+            wbox(deagleM, .018, .018, .07, .047, .045, -.04, steelDark); // kurma kolu
+            wbox(deagleM, .02, .04, .022, 0, .062, .052, steelDark, -.4); // çekiç
+            const dgGuard = new THREE.Mesh(new THREE.TorusGeometry(.028, .007, 8, 14, Math.PI), gunDark);
+            dgGuard.rotation.y = Math.PI / 2;
+            dgGuard.position.set(0, -.072, -.115);
+            deagleM.add(dgGuard);
+            wbox(deagleM, .048, .015, .07, 0, -.075, -.155, gunMid);   // korkuluk altı
+            const dFlash = makeFlash(deagleM, -.33, .36);
+            const dLight = makeFlashLight(deagleM, -.3);
+
+            // ---- SLOT 3: Taktik bıçak ----
+            const knifeM = new THREE.Group();
+            weaponRoot.add(knifeM);
+            knifeM.visible = false;
+            knifeM.rotation.y = -.18;
+            knifeM.rotation.z = .05;
+            wbox(knifeM, .013, .052, .26, 0, .02, -.20, steel);        // ağız
+            wbox(knifeM, .004, .01, .25, 0, -.007, -.195, edgeMat);    // keskin kenar
+            wbox(knifeM, .005, .018, .24, 0, .046, -.20, steelDark);   // oluk
+            const kTip = mbox(knifeM, new THREE.ConeGeometry(.026, .11, 4), steel, 0, .02, -.385);
+            kTip.rotation.y = Math.PI / 4;
+            kTip.scale.set(.42, 1, 1);
+            wbox(knifeM, .05, .016, .028, 0, .008, -.062, gunDark);    // guard
+            const kGrip = mbox(knifeM, new THREE.CylinderGeometry(.021, .024, .15, 10), rubberMat, 0, 0, .02);
+            kGrip.rotation.x = Math.PI / 2;
+            [-.035, .005, .045].forEach(zz => {
+                const ring = new THREE.Mesh(new THREE.TorusGeometry(.0245, .0035, 8, 14), gunMid);
+                ring.position.set(0, 0, zz);
+                knifeM.add(ring);
+            });
+            wbox(knifeM, .028, .045, .022, 0, 0, .105, brassMat);      // pommel
+
+            // ---- SİLAH TANIMLARI ----
+            const GUNS = [
+                {
+                    id: 'rifle', name: 'OX-19 // TAARRUZ TÜFEĞİ', model: rifleM,
+                    melee: false, auto: true, canScope: true,
+                    dmg: 26, hsDmg: 55, rate: 105, magSize: 30, mag: 30,
+                    reloadDur: 1.5, spreadHip: .011, spreadAds: .0006,
+                    camKickAmt: .016, kickYaw: .0018,
+                    hip: V3(.26, -.245, -.5), ads: V3(0, -.185, -.4),
+                    light: muzzleLight, flash: flashSprite
+                },
+                {
+                    id: 'deagle', name: 'DESERT EAGLE .50', model: deagleM,
+                    melee: false, auto: false, canScope: false,
+                    dmg: 56, hsDmg: 125, rate: 430, magSize: 7, mag: 7,
+                    reloadDur: 2.0, spreadHip: .007, spreadAds: .0028,
+                    camKickAmt: .05, kickYaw: .005,
+                    hip: V3(.22, -.235, -.44), ads: V3(.13, -.215, -.42),
+                    light: dLight, flash: dFlash
+                },
+                {
+                    id: 'knife', name: 'TAKTİK BIÇAK', model: knifeM,
+                    melee: true, rate: 480, heavyRate: 850, range: 2.5,
+                    dmg: 60, hsDmg: 75, heavyDmg: 110,
+                    hip: V3(.25, -.225, -.36), ads: V3(.25, -.225, -.36)
+                }
+            ];
+            let curGun = 0, switchT = 0, attackT = 0, attackHeavy = false, triggerReady = true;
+
+            function applyWeaponVisibility() {
+                rifleM.visible = curGun === 0;
+                deagleM.visible = curGun === 1;
+                knifeM.visible = curGun === 2;
+            }
+            function switchTo(i) {
+                if (i === curGun || i < 0 || i > 2 || switchT > 0) return;
+                if (GUNS[curGun] && GUNS[curGun].reloading !== undefined) GUNS[curGun].reloading = false;
+                reloading = false;
+                firing = false;
+                setScope(false);
+                $('ammo-wrap').classList.remove('reloading');
+                curGun = i;
+                switchT = .3;
+                applyWeaponVisibility();
+                updateAmmoUI();
+                sfxSwitch();
+                // boş silah seçildiyse hemen şarjör değiştir
+                if (!GUNS[i].melee && GUNS[i].mag === 0) tryReload();
+            }
+            applyWeaponVisibility();
+
+            // ================= SES MOTORU (WebAudio) =================
+            let AC = null, noiseBuf = null, masterGain = null;
+            function audio() {
+                if (!AC) {
+                    AC = new (window.AudioContext || window.webkitAudioContext)();
+                    masterGain = AC.createGain();
+                    masterGain.gain.value = S.vol / 100;
+                    masterGain.connect(AC.destination);
+                    noiseBuf = AC.createBuffer(1, AC.sampleRate * .5, AC.sampleRate);
+                    const d = noiseBuf.getChannelData(0);
+                    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+                    // rüzgar ambiyansı
+                    const ws = AC.createBufferSource(); ws.buffer = noiseBuf; ws.loop = true;
+                    const wf = AC.createBiquadFilter(); wf.type = 'lowpass'; wf.frequency.value = 220; wf.Q.value = .6;
+                    const wg = AC.createGain(); wg.gain.value = .055;
+                    ws.connect(wf); wf.connect(wg); wg.connect(masterGain); ws.start();
+                    const lfo = AC.createOscillator(); lfo.frequency.value = .11;
+                    const lg = AC.createGain(); lg.gain.value = 80;
+                    lfo.connect(lg); lg.connect(wf.frequency); lfo.start();
+                    // tarayıcı otomatik oynatma kilidi için güvenli devam ettirme
+                    if (AC.state === 'suspended') {
+                        const rs = () => { if (AC.state === 'suspended') AC.resume(); };
+                        addEventListener('click', rs);
+                        addEventListener('keydown', rs);
+                    }
+                }
+                return AC;
+            }
+            function envGain(vol) {
+                const g = audio().createGain();
+                g.connect(masterGain);
+                return g;
+            }
+            function sfxShoot() {
+                try {
+                    const t = audio().currentTime;
+                    const src = AC.createBufferSource(); src.buffer = noiseBuf;
+                    const f = AC.createBiquadFilter(); f.type = 'lowpass';
+                    f.frequency.setValueAtTime(3200, t);
+                    f.frequency.exponentialRampToValueAtTime(400, t + .1);
+                    const g = envGain();
+                    g.gain.setValueAtTime(.5, t);
+                    g.gain.exponentialRampToValueAtTime(.001, t + .12);
+                    src.connect(f); f.connect(g); src.start(t); src.stop(t + .14);
+                    const o = AC.createOscillator(); o.type = 'square';
+                    o.frequency.setValueAtTime(150, t);
+                    o.frequency.exponentialRampToValueAtTime(50, t + .09);
+                    const g2 = envGain();
+                    g2.gain.setValueAtTime(.28, t);
+                    g2.gain.exponentialRampToValueAtTime(.001, t + .1);
+                    o.connect(g2); o.start(t); o.stop(t + .11);
+                } catch (e) { }
+            }
+            function sfxTone(freq, dur, vol, type) {
+                try {
+                    const t = audio().currentTime;
+                    const o = AC.createOscillator(); o.type = type || 'sine';
+                    o.frequency.value = freq;
+                    const g = envGain();
+                    g.gain.setValueAtTime(vol, t);
+                    g.gain.exponentialRampToValueAtTime(.001, t + dur);
+                    o.connect(g); o.start(t); o.stop(t + dur);
+                } catch (e) { }
+            }
+            const sfxHit = () => sfxTone(950, .06, .22, 'square');
+            const sfxKill = () => { sfxTone(620, .1, .3, 'square'); setTimeout(() => sfxTone(880, .14, .3, 'square'), 70); };
+            const sfxHurt = () => sfxTone(105, .18, .4, 'sawtooth');
+            const sfxDry = () => sfxTone(1400, .04, .12, 'square');
+            function sfxReload() {
+                sfxTone(500, .05, .2, 'square');
+                setTimeout(() => sfxTone(380, .06, .2, 'square'), 420);
+                setTimeout(() => sfxTone(700, .05, .25, 'square'), 1150);
+            }
+            function sfxStep(run) {
+                try {
+                    const t = audio().currentTime;
+                    const src = AC.createBufferSource(); src.buffer = noiseBuf;
+                    src.playbackRate.value = rand(.8, 1.25);
+                    const f = AC.createBiquadFilter(); f.type = 'bandpass';
+                    f.frequency.value = rand(320, 540); f.Q.value = 1.2;
+                    const g = envGain();
+                    g.gain.setValueAtTime(run ? .16 : .09, t);
+                    g.gain.exponentialRampToValueAtTime(.001, t + .07);
+                    src.connect(f); f.connect(g); src.start(t, rand(0, .3)); src.stop(t + .08);
+                } catch (e) { }
+            }
+            function sfxScope(on) {
+                try {
+                    const t = audio().currentTime;
+                    const o = AC.createOscillator(); o.type = 'sine';
+                    o.frequency.setValueAtTime(on ? 500 : 720, t);
+                    o.frequency.exponentialRampToValueAtTime(on ? 920 : 420, t + .12);
+                    const g = envGain();
+                    g.gain.setValueAtTime(.09, t);
+                    g.gain.exponentialRampToValueAtTime(.001, t + .14);
+                    o.connect(g); o.start(t); o.stop(t + .15);
+                } catch (e) { }
+            }
+            const sfxHeadshot = () => { sfxTone(1250, .07, .25, 'square'); setTimeout(() => sfxTone(1650, .1, .22, 'square'), 55); };
+            function sfxFanfare() {
+                [440, 554, 659, 880].forEach((f, i) => setTimeout(() => sfxTone(f, .22, .22, 'triangle'), i * 110));
+            }
+            const sfxPickup = () => { sfxTone(720, .08, .22, 'sine'); setTimeout(() => sfxTone(1080, .12, .2, 'sine'), 70); };
+            function sfxHeart() { sfxTone(64, .1, .3, 'sine'); setTimeout(() => sfxTone(56, .12, .26, 'sine'), 140); }
+            function sfxStreak(n) {
+                const base = 500 + Math.min(n, 10) * 55;
+                [1, 1.25, 1.55].forEach((m, i) => setTimeout(() => sfxTone(base * m, .1, .18, 'square'), i * 60));
+            }
+            function sfxShootBig() {
+                try {
+                    const t = audio().currentTime;
+                    const src = AC.createBufferSource(); src.buffer = noiseBuf;
+                    const f = AC.createBiquadFilter(); f.type = 'lowpass';
+                    f.frequency.setValueAtTime(1600, t);
+                    f.frequency.exponentialRampToValueAtTime(150, t + .2);
+                    const g = envGain();
+                    g.gain.setValueAtTime(.72, t);
+                    g.gain.exponentialRampToValueAtTime(.001, t + .24);
+                    src.connect(f); f.connect(g); src.start(t); src.stop(t + .26);
+                    const o = AC.createOscillator(); o.type = 'square';
+                    o.frequency.setValueAtTime(95, t);
+                    o.frequency.exponentialRampToValueAtTime(34, t + .18);
+                    const g2 = envGain();
+                    g2.gain.setValueAtTime(.42, t);
+                    g2.gain.exponentialRampToValueAtTime(.001, t + .2);
+                    o.connect(g2); o.start(t); o.stop(t + .21);
+                } catch (e) { }
+            }
+            function sfxSwing() {
+                try {
+                    const t = audio().currentTime;
+                    const src = AC.createBufferSource(); src.buffer = noiseBuf;
+                    src.playbackRate.value = 1.6;
+                    const f = AC.createBiquadFilter(); f.type = 'bandpass';
+                    f.frequency.setValueAtTime(2400, t);
+                    f.frequency.exponentialRampToValueAtTime(600, t + .14);
+                    f.Q.value = 1.5;
+                    const g = envGain();
+                    g.gain.setValueAtTime(.16, t);
+                    g.gain.exponentialRampToValueAtTime(.001, t + .15);
+                    src.connect(f); f.connect(g); src.start(t); src.stop(t + .16);
+                } catch (e) { }
+            }
+            function sfxRemoteShot(vol) {
+                // uzaktan gelen silah sesi — mesafeye göre kısılır, tok ve boğuk
+                try {
+                    const t = audio().currentTime;
+                    const src = AC.createBufferSource(); src.buffer = noiseBuf;
+                    const f = AC.createBiquadFilter(); f.type = 'lowpass';
+                    f.frequency.setValueAtTime(1100, t);
+                    f.frequency.exponentialRampToValueAtTime(180, t + .13);
+                    const g = envGain();
+                    g.gain.setValueAtTime(.5 * vol, t);
+                    g.gain.exponentialRampToValueAtTime(.001, t + .16);
+                    src.connect(f); f.connect(g); src.start(t); src.stop(t + .17);
+                } catch (e) { }
+            }
+            function sfxStab() {
+                sfxTone(140, .09, .3, 'square');
+                setTimeout(() => sfxTone(88, .1, .25, 'sawtooth'), 40);
+            }
+            const sfxSwitch = () => {
+                sfxTone(420, .04, .15, 'square');
+                setTimeout(() => sfxTone(580, .05, .18, 'square'), 70);
+            };
+
+            // ================= OYUN DURUMU / OYUNCU =================
+            let BASE_FOV = 75; const SCOPED_FOV = 17;
+            let state = 'menu';          // menu | playing | paused | dead
+            const P = {
+                pos: V3(0, 0, 26), vel: V3(0, 0, 0), yaw: Math.PI, pitch: 0,
+                onGround: true, crouch: false, hp: 100, lastHurt: -9999,
+                eyeCur: 1.7, bobPhase: 0, camDip: 0, rollTilt: 0
+            };
+            const keys = {};
+            let locked = false, firing = false, scoped = false;
+            let reloading = false, reloadT = 0;
+            let lastShot = 0, camKick = 0, swayX = 0, swayY = 0, recoilK = 0;
+            let kills = 0, shotsFired = 0, shotsHit = 0;
+            let dmgFlash = 0;
+            let streak = 0, streakT = 0, hbT = 0, lastStepIdx = 0;
+            let fpsFrames = 0, fpsTime = 0;
+
+            addEventListener('keydown', e => {
+                keys[e.code] = true;
+                if (e.code === 'Space') e.preventDefault();
+                if (state !== 'playing') return;
+                if (e.code === 'KeyR') tryReload();
+                if (e.code === 'Digit1') switchTo(0);
+                if (e.code === 'Digit2') switchTo(1);
+                if (e.code === 'Digit3') switchTo(2);
+            });
+            addEventListener('keyup', e => keys[e.code] = false);
+            addEventListener('contextmenu', e => e.preventDefault());
+            addEventListener('wheel', e => {
+                if (state !== 'playing' || !locked) return;
+                switchTo((curGun + (e.deltaY > 0 ? 1 : 2)) % 3);
+            });
+            addEventListener('mousedown', e => {
+                if (state !== 'playing' || !locked) return;
+                const g = GUNS[curGun];
+                if (e.button === 0) {
+                    firing = true; triggerReady = true;
+                    if (!g.melee && !reloading && g.mag <= 0) sfxDry();
+                }
+                if (e.button === 2) {
+                    if (g.canScope) setScope(true);
+                    else if (g.melee) meleeAttack(true);
+                }
+            });
+            addEventListener('mouseup', e => {
+                if (e.button === 0) { firing = false; triggerReady = true; }
+                if (e.button === 2) setScope(false);
+            });
+            document.addEventListener('mousemove', e => {
+                if (!locked || state !== 'playing') return;
+                const s = 0.0021 * (scoped ? .32 : 1) * (S.sens / 100);
+                P.yaw -= e.movementX * s;
+                P.pitch = clamp(P.pitch - e.movementY * s, -1.55, 1.55);
+                swayX = clamp(swayX + e.movementX * .00004, -.03, .03);
+                swayY = clamp(swayY + e.movementY * .00004, -.03, .03);
+            });
+
+            function setScope(v) {
+                if (scoped === v) return;
+                scoped = v;
+                $('scope').classList.toggle('on', v);
+                $('crosshair').classList.toggle('off', v);
+                sfxScope(v);
+            }
+
+            // Pointer Lock akışı
+            let pendingStart = false;
+            function lockPointer(retry) {
+                try {
+                    const p = canvas.requestPointerLock();
+                    if (p && p.catch) p.catch(() => {
+                        if (!retry) setTimeout(() => lockPointer(true), 1300);
+                    });
+                } catch (e) {
+                    if (!retry) setTimeout(() => lockPointer(true), 1300);
+                }
+            }
+            document.addEventListener('pointerlockchange', () => {
+                locked = document.pointerLockElement === canvas;
+                if (locked) {
+                    if (pendingStart || state === 'paused') {
+                        pendingStart = false;
+                        beginPlay();
+                    }
+                } else if (state === 'playing') {
+                    pauseGame();
+                }
+            });
+
+            function beginPlay() {
+                state = 'playing';
+                ['menu-start', 'menu-pause', 'menu-settings'].forEach(id => $(id).classList.add('hidden'));
+                $('hud').classList.add('active');
+            }
+            function pauseGame() {
+                state = 'paused';
+                firing = false; setScope(false);
+                for (const k in keys) keys[k] = false;
+                $('menu-pause').classList.remove('hidden');
+            }
+
+            function resetGame() {
+                P.pos.set(0, 0, 26); P.vel.set(0, 0, 0);
+                P.yaw = Math.PI; P.pitch = 0; P.hp = 100; P.lastHurt = -9999;
+                reloading = false; kills = 0;
+                shotsFired = 0; shotsHit = 0; dmgFlash = 0;
+                firing = false; triggerReady = true; attackT = 0;
+                GUNS.forEach(g => { if (!g.melee) g.mag = g.magSize; g.reloading = false; });
+                switchT = 0; curGun = -1; switchTo(0);
+                for (const k in keys) keys[k] = false;
+                $('ammo-wrap').classList.remove('reloading');
+                $('feed').innerHTML = '';
+                streak = 0; streakT = 0;
+                imDead = false;
+                $('death-screen').classList.add('hidden');
+                netConnect();
+                updateAmmoUI(); updateStatsUI();
+            }
+            function startGame() {
+                audio();
+                resetGame();
+                pendingStart = true;
+                lockPointer();
+            }
+
+            // ================= AYARLAR ARAYÜZÜ =================
+            // (UI erken script'te; burada motor uygulayıcıları dışa açılır)
+            function applyAccent() {
+                const hex = ACCENT_HEX();
+                saveS();
+                document.documentElement.style.setProperty('--accent', hex);
+                document.documentElement.style.setProperty('--accent-glow', hex + '66');
+                gunAccent.color.set(hex);
+                gunAccent.emissive.set(hex).multiplyScalar(.25);
+                neonMats.forEach(m => m.color.set(hex));
+            }
+
+            window.__oxyApply = {
+                tod: v => applyTOD(v),
+                quality: () => applyQuality(),
+                accent: () => applyAccent(),
+                fov: v => { BASE_FOV = +v; },
+                vol: () => applyVol()
+            };
+
+            // kayıtlı ayarları uygula
+            applyTOD(S.tod);
+            applyQuality();
+            applyAccent();
+
+            // rekor
+            const bestScore = () => { try { return +(localStorage.getItem('oxystrike_best') || 0); } catch (e) { return 0; } };
+            function refreshRekor() {
+                $('menu-rekor').textContent = bestScore() > 0 ? '🏆 REKORUN: ' + bestScore() : '';
+            }
+            refreshRekor();
+
+            // erken bağlı menü butonlarının motor tarafı (btn-start/settings geri/ileri erken script'te)
+            window.__oxyStart = startGame;
+            $('btn-resume').onclick = () => { $('menu-pause').classList.add('hidden'); lockPointer(); };
+            $('btn-restart-p').onclick = () => { resetGame(); lockPointer(); };
+            if ('ontouchstart' in window && innerWidth < 900) $('mobile-note').classList.remove('hidden');
+
+            // ================= OYUNCU FİZİĞİ =================
+            function collideCircle(pos, r) {
+                for (const c of colliders) {
+                    const nx = clamp(pos.x, c.minX, c.maxX);
+                    const nz = clamp(pos.z, c.minZ, c.maxZ);
+                    const dx = pos.x - nx, dz = pos.z - nz;
+                    const d2 = dx * dx + dz * dz;
+                    if (d2 < r * r) {
+                        if (d2 > 1e-8) {
+                            const d = Math.sqrt(d2), push = r - d;
+                            pos.x += dx / d * push; pos.z += dz / d * push;
+                        } else {
+                            const l = pos.x - c.minX, rt = c.maxX - pos.x;
+                            const tp = pos.z - c.minZ, bt = c.maxZ - pos.z;
+                            const m = Math.min(l, rt, tp, bt);
+                            if (m === l) pos.x = c.minX - r;
+                            else if (m === rt) pos.x = c.maxX + r;
+                            else if (m === tp) pos.z = c.minZ - r;
+                            else pos.z = c.maxZ + r;
+                        }
+                    }
+                }
+            }
+
+            // Oyuncu: alçak engellere tırmanma + üstünde durma
+            function playerWorldCollide() {
+                let groundY = 0;
+                const r = .42;
+                for (const c of colliders) {
+                    if (P.pos.x < c.minX - r || P.pos.x > c.maxX + r ||
+                        P.pos.z < c.minZ - r || P.pos.z > c.maxZ + r) continue;
+                    const top = c.h;
+                    if (top <= P.pos.y + .55) {
+                        // basamak / üstüne zıplanabilir yüzey
+                        if (top > groundY) groundY = top;
+                    } else {
+                        // yüksek engel: yatay itme
+                        const nx = clamp(P.pos.x, c.minX, c.maxX);
+                        const nz = clamp(P.pos.z, c.minZ, c.maxZ);
+                        const dx = P.pos.x - nx, dz = P.pos.z - nz;
+                        const d2 = dx * dx + dz * dz;
+                        if (d2 < r * r) {
+                            if (d2 > 1e-8) {
+                                const dd = Math.sqrt(d2), p = r - dd;
+                                P.pos.x += dx / dd * p; P.pos.z += dz / dd * p;
+                            } else {
+                                const l = P.pos.x - c.minX, rt = c.maxX - P.pos.x;
+                                const tp = P.pos.z - c.minZ, bt = c.maxZ - P.pos.z;
+                                const m = Math.min(l, rt, tp, bt);
+                                if (m === l) P.pos.x = c.minX - r;
+                                else if (m === rt) P.pos.x = c.maxX + r;
+                                else if (m === tp) P.pos.z = c.minZ - r;
+                                else P.pos.z = c.maxZ + r;
+                            }
+                        }
+                    }
+                }
+                return groundY;
+            }
+
+            function updatePlayer(dt) {
+                const f = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0);
+                const r = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
+                P.crouch = !!(keys.ControlLeft || keys.ControlRight || keys.KeyC) && P.onGround;
+                const sprinting = keys.ShiftLeft && !P.crouch && f > 0 && !scoped;
+                const spd = P.crouch ? 2.9 : (sprinting ? 9.3 : 6.2);
+
+                const sy = Math.sin(P.yaw), cy = Math.cos(P.yaw);
+                let wx = (-sy * f + cy * r), wz = (-cy * f - sy * r);
+                const wl = Math.hypot(wx, wz);
+                if (wl > 0) { wx = wx / wl * spd; wz = wz / wl * spd; }
+
+                const k = 1 - Math.exp(-(P.onGround ? 11 : 2.5) * dt);
+                P.vel.x = lerp(P.vel.x, wx, k);
+                P.vel.z = lerp(P.vel.z, wz, k);
+
+                if (keys.Space && P.onGround) {
+                    P.vel.y = 8.4; P.onGround = false;
+                    sfxTone(240, .08, .12, 'sine');
+                }
+                P.vel.y -= 24 * dt;
+                P.pos.x += P.vel.x * dt;
+                P.pos.z += P.vel.z * dt;
+                P.pos.y += P.vel.y * dt;
+
+                const gY = playerWorldCollide();
+                const L = ARENA - 1.4;
+                P.pos.x = clamp(P.pos.x, -L, L);
+                P.pos.z = clamp(P.pos.z, -L, L);
+
+                if (P.pos.y <= gY) {
+                    if (!P.onGround) {
+                        P.camDip = Math.min(.15, .05 + Math.abs(P.vel.y) * .012);
+                        sfxTone(180, .06, .1);
+                        burst(V3(P.pos.x, gY + .06, P.pos.z), 0xa39f8d, 8, 1.9);
+                    }
+                    P.pos.y = gY; P.vel.y = 0; P.onGround = true;
+                } else if (P.pos.y > gY + .02) {
+                    P.onGround = false;
+                }
+
+                const targetEye = P.crouch ? 1.02 : 1.7;
+                P.eyeCur = lerp(P.eyeCur, targetEye, 1 - Math.exp(-12 * dt));
+                const hs = Math.hypot(P.vel.x, P.vel.z);
+                const moving = hs > .8 && P.onGround;
+                if (moving) {
+                    P.bobPhase += dt * hs * 1.5;
+                    const sIdx = Math.floor(P.bobPhase / Math.PI);
+                    if (sIdx !== lastStepIdx) { lastStepIdx = sIdx; sfxStep(hs > 7); }
+                }
+                P.camDip = lerp(P.camDip, 0, 1 - Math.exp(-10 * dt));
+                const bobY = moving ? Math.sin(P.bobPhase * 2) * .028 : 0;
+                P.rollTilt = lerp(P.rollTilt, -r * .014, 1 - Math.exp(-8 * dt));
+
+                camera.position.set(P.pos.x, P.pos.y + P.eyeCur + bobY - P.camDip, P.pos.z);
+                const scopeSway = scoped ? Math.sin(performance.now() * .0018) * .0012 : 0;
+                camera.rotation.set(P.pitch + camKick + scopeSway, P.yaw, P.rollTilt);
+
+                const now = performance.now();
+                if (now - P.lastHurt > 5200 && P.hp < 100)
+                    P.hp = Math.min(100, P.hp + 7 * dt);
+            }
+
+            // ================= PARÇACIKLAR & İZLİ MERMİ =================
+            const PMAX = 400;
+            const pPos = new Float32Array(PMAX * 3), pCol = new Float32Array(PMAX * 3);
+            const pVel = new Float32Array(PMAX * 3), pLife = new Float32Array(PMAX);
+            for (let i = 0; i < PMAX; i++) { pPos[i * 3 + 1] = -999; }
+            const pGeo = new THREE.BufferGeometry();
+            pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+            pGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
+            const pointsMesh = new THREE.Points(pGeo,
+                new THREE.PointsMaterial({ size: .13, vertexColors: true, transparent: true, opacity: .95 }));
+            pointsMesh.frustumCulled = false;
+            scene.add(pointsMesh);
+            let pCursor = 0;
+            function burst(pos, color, n, spd) {
+                const c = new THREE.Color(color);
+                for (let i = 0; i < n; i++) {
+                    const idx = (pCursor++) % PMAX;
+                    pPos[idx * 3] = pos.x; pPos[idx * 3 + 1] = pos.y; pPos[idx * 3 + 2] = pos.z;
+                    pVel[idx * 3] = rand(-1, 1) * spd;
+                    pVel[idx * 3 + 1] = rand(.2, 1.4) * spd;
+                    pVel[idx * 3 + 2] = rand(-1, 1) * spd;
+                    pLife[idx] = rand(.25, .6);
+                    const v = rand(.7, 1.15);
+                    pCol[idx * 3] = c.r * v; pCol[idx * 3 + 1] = c.g * v; pCol[idx * 3 + 2] = c.b * v;
+                }
+            }
+            function updateParticles(dt) {
+                let dirty = false;
+                for (let i = 0; i < PMAX; i++) {
+                    if (pLife[i] > 0) {
+                        dirty = true;
+                        pLife[i] -= dt;
+                        pVel[i * 3 + 1] -= 9.8 * dt;
+                        pPos[i * 3] += pVel[i * 3] * dt;
+                        pPos[i * 3 + 1] += pVel[i * 3 + 1] * dt;
+                        pPos[i * 3 + 2] += pVel[i * 3 + 2] * dt;
+                        if (pPos[i * 3 + 1] < .02) { pPos[i * 3 + 1] = .02; pVel[i * 3 + 1] *= -.35; }
+                        if (pLife[i] <= 0) pPos[i * 3 + 1] = -999;
+                    }
+                }
+                if (dirty) pGeo.attributes.position.needsUpdate = true;
+            }
+
+            const tracers = [];
+            function spawnTracer(a, b, color) {
+                const g = new THREE.BufferGeometry().setFromPoints([a.clone(), b.clone()]);
+                const m = new THREE.LineBasicMaterial({ color: color || 0xffe9a0, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false });
+                const l = new THREE.Line(g, m);
+                scene.add(l);
+                tracers.push({ l, t: 0 });
+            }
+            function updateTracers(dt) {
+                for (let i = tracers.length - 1; i >= 0; i--) {
+                    const t = tracers[i];
+                    t.t += dt;
+                    t.l.material.opacity = Math.max(0, .9 * (1 - t.t / .08));
+                    if (t.t > .08) {
+                        scene.remove(t.l);
+                        t.l.geometry.dispose(); t.l.material.dispose();
+                        tracers.splice(i, 1);
+                    }
+                }
+            }
+
+            // ================= ATEŞ ETME =================
+            const raycaster = new THREE.Raycaster();
+            function tryReload() {
+                const g = GUNS[curGun];
+                if (g.melee || reloading || g.mag >= g.magSize || state !== 'playing') return;
+                reloading = true; reloadT = 0;
+                $('ammo-wrap').classList.add('reloading');
+                $('reload-fill').style.width = '0%';
+                sfxReload();
+            }
+
+            function fire(now) {
+                if (!wsReady || imDead) return;
+                const g = GUNS[curGun];
+                if (g.melee) { meleeAttack(false); triggerReady = true; return; }
+                if (!g.auto && !triggerReady) return;
+                if (now - lastShot < g.rate || reloading || switchT > 0) return;
+                if (g.mag <= 0) { triggerReady = false; tryReload(); return; }
+                triggerReady = false;
+                lastShot = now; g.mag--; shotsFired++;
+                updateAmmoUI();
+                if (g.id === 'deagle') sfxShootBig(); else sfxShoot();
+                // şarjör boşaldıysa otomatik şarjör değiştir
+                if (g.mag === 0) setTimeout(() => { if (GUNS[curGun] === g && state === 'playing') tryReload(); }, 350);
+
+                recoilK = 1;
+                camKick += scoped ? g.camKickAmt * .4 : g.camKickAmt;
+                P.yaw += rand(-g.kickYaw, g.kickYaw);
+
+                camera.updateMatrixWorld(true);
+                g.light.intensity = g.id === 'deagle' ? 3 : 2.4;
+                g.flash.visible = true;
+                g.flash.rotation.z = rand(0, 6.28);
+                g.flash.scale.setScalar(rand(.8, g.id === 'deagle' ? 1.7 : 1.35));
+                flashT = .05;
+
+                const mzWorld = camera.localToWorld(V3(g.id === 'deagle' ? .12 : .18, -.16, -.95));
+                burst(mzWorld.clone().add(V3(.06, .12, .55)), 0xd8a43c, 2, 1.6); // kovan
+
+                const dir = V3();
+                camera.getWorldDirection(dir);
+                const hs = Math.hypot(P.vel.x, P.vel.z);
+                let spread = scoped ? g.spreadAds : g.spreadHip;
+                if (hs > 1) spread *= 1.7;
+                if (!P.onGround) spread *= 1.6;
+                if (P.crouch) spread *= .65;
+                dir.x += rand(-spread, spread);
+                dir.y += rand(-spread, spread);
+                dir.z += rand(-spread, spread);
+                dir.normalize();
+
+                raycaster.set(camera.position, dir);
+                raycaster.far = 320;
+                const targets = enemyHitMeshes.concat(solids);
+                const hits = raycaster.intersectObjects(targets, false);
+                const end = camera.position.clone().add(dir.clone().multiplyScalar(160));
+                let fxN = null;   // decal normali — rakiplere de gönderilecek
+                if (hits.length) {
+                    const h = hits[0];
+                    end.copy(h.point);
+                    if (h.face) fxN = h.face.normal.clone().transformDirection(h.object.matrixWorld);
+                    if (h.object.userData && h.object.userData.pid !== undefined) {
+                        shotsHit++;
+                        const pid = h.object.userData.pid;
+                        const isHead = h.object.userData.part === 'head';
+                        if (isHead) burst(h.point, 0xffd040, 6, 2);
+                        burst(h.point, 0xd42a2a, 5, 2);
+                        sendHit(pid, isHead ? g.hsDmg : g.dmg, isHead);
+                        showHitmarker(false);
+                        sfxHit();
+                        spawnPop(isHead ? ('-' + g.hsDmg) : ('-' + g.dmg), isHead ? 'head' : '');
+                    } else {
+                        burst(h.point, 0xbfc8b0, 7, 1.8);
+                        spawnDecal(h.point, h.face ? h.face.normal.clone().transformDirection(h.object.matrixWorld) : V3(0, 1, 0));
+                    }
+                }
+                spawnTracer(mzWorld, end, parseInt(ACCENT_HEX().slice(1), 16));
+                sendShotFx(mzWorld, end, fxN);   // rakipler de izi/sesi/iz kalıntısını görsün
+                if (shotsFired % 3 === 0) burst(mzWorld, 0x9a9a92, 3, .5); // namlu dumanı
+            }
+
+            function meleeAttack(heavy) {
+                if (!wsReady || imDead) return;
+                const g = GUNS[curGun];
+                const now = performance.now();
+                const cd = heavy ? g.heavyRate : g.rate;
+                if (now - lastShot < cd || switchT > 0 || attackT > .4) return;
+                lastShot = now;
+                attackT = 1; attackHeavy = heavy;
+                sfxSwing();
+
+                camera.updateMatrixWorld(true);
+                const dir = V3();
+                camera.getWorldDirection(dir);
+                raycaster.set(camera.position, dir);
+                raycaster.far = g.range;
+                const hits = raycaster.intersectObjects(enemyHitMeshes.concat(solids), false);
+                if (!hits.length) return;
+                const h = hits[0];
+                if (h.object.userData && h.object.userData.pid !== undefined) {
+                    const pid = h.object.userData.pid;
+                    const isHead = h.object.userData.part === 'head';
+                    const dmg = heavy ? g.heavyDmg : (isHead ? g.hsDmg : g.dmg);
+                    burst(h.point, 0xd42a2a, heavy ? 16 : 9, 2.2);
+                    sfxStab();
+                    sendHit(pid, dmg, false);
+                    showHitmarker(false);
+                    spawnPop('-' + dmg, '');
+                } else {
+                    burst(h.point, 0xd8d8c8, 5, 1.4);
+                    sfxTone(rand(700, 900), .05, .15, 'square');
+                    spawnDecal(h.point, h.face ? h.face.normal.clone().transformDirection(h.object.matrixWorld) : V3(0, 1, 0));
+                }
+            }
+
+            // ================= SİLAH ANİMASYONU =================
+            function updateWeapon(dt, now) {
+                const g = GUNS[curGun];
+                // FOV geçişi (dürbün / koşu)
+                const sprinting = keys.ShiftLeft && !P.crouch && Math.hypot(P.vel.x, P.vel.z) > 7;
+                const tf = scoped ? SCOPED_FOV : (sprinting ? BASE_FOV * 1.1 : BASE_FOV); // koşuda +%10
+                camera.fov = lerp(camera.fov, tf, 1 - Math.exp(-13 * dt));
+                camera.updateProjectionMatrix();
+
+                if (reloading) {
+                    reloadT += dt;
+                    $('reload-fill').style.width = Math.min(100, reloadT / g.reloadDur * 100) + '%';
+                    if (reloadT >= g.reloadDur) {
+                        reloading = false;
+                        g.mag = g.magSize;
+                        $('ammo-wrap').classList.remove('reloading');
+                        updateAmmoUI();
+                    }
+                }
+
+                camKick = lerp(camKick, 0, 1 - Math.exp(-9 * dt));
+                recoilK = Math.max(0, recoilK - dt * 6.5);
+                if (g.light) g.light.intensity = Math.max(0, g.light.intensity - dt * 30);
+                if (flashT > 0 && g.flash) { flashT -= dt; if (flashT <= 0) g.flash.visible = false; }
+                swayX = lerp(swayX, 0, 1 - Math.exp(-7 * dt));
+                swayY = lerp(swayY, 0, 1 - Math.exp(-7 * dt));
+
+                const hs = Math.hypot(P.vel.x, P.vel.z);
+                const moving = hs > .8 && P.onGround;
+                const bobAmp = scoped ? .0012 : (g.melee ? .010 : .013);
+                const bx = moving ? Math.sin(P.bobPhase) * bobAmp : Math.sin(now * .0011) * .0022;
+                const by = moving ? -Math.abs(Math.cos(P.bobPhase)) * bobAmp * 1.15 : Math.sin(now * .0016) * .0028;
+
+                const target = scoped ? g.ads : g.hip;
+                const kk = 1 - Math.exp(-(scoped ? 22 : 16) * dt);
+                $('crosshair').style.setProperty('--gap',
+                    (5 + Math.min(hs * .9, 9) + recoilK * 11 + (P.onGround ? 0 : 6)).toFixed(1) + 'px');
+                weaponRoot.position.x = lerp(weaponRoot.position.x, target.x + bx + swayX, kk);
+                weaponRoot.position.y = lerp(weaponRoot.position.y, target.y + by + swayY, kk);
+                weaponRoot.position.z = lerp(weaponRoot.position.z, target.z + recoilK * .085, kk);
+
+                let extraRotX = camKick * 2.4;
+                let extraRotZ = 0;
+                if (reloading) {
+                    const rp = Math.min(reloadT / g.reloadDur, 1);
+                    extraRotX -= Math.sin(rp * Math.PI) * .85;
+                    extraRotZ += Math.sin(rp * Math.PI) * .4;
+                }
+                // silah değiştirme: indir-yüksel
+                if (switchT > 0) {
+                    switchT -= dt;
+                    const sp = 1 - Math.max(0, switchT) / .3;
+                    weaponRoot.position.y -= Math.sin(sp * Math.PI) * .22;
+                    extraRotX += Math.sin(sp * Math.PI) * .5;
+                }
+                // bıçak savurma animasyonu
+                if (attackT > 0) {
+                    attackT = Math.max(0, attackT - dt * (attackHeavy ? 4.2 : 6.5));
+                    const sw = Math.sin((1 - attackT) * Math.PI);
+                    weaponRoot.position.z -= sw * (attackHeavy ? .24 : .16);
+                    weaponRoot.position.x += sw * (attackHeavy ? -.09 : .11);
+                    extraRotX -= sw * (attackHeavy ? .8 : .35);
+                    extraRotZ += sw * (attackHeavy ? -.3 : .45);
+                }
+                weaponRoot.rotation.x = extraRotX;
+                weaponRoot.rotation.y = lerp(weaponRoot.rotation.y, swayX * 2.2, .25);
+                weaponRoot.rotation.z = lerp(weaponRoot.rotation.z, extraRotZ, .3);
+
+                weaponRoot.visible = !(scoped && g.canScope);
+
+                if (firing) fire(now);
+            }
+
+            // ================= ÇEVRİMİÇİ OYUNCULAR =================
+            const blobShadowMat = new THREE.MeshBasicMaterial({
+                map: (function () {
+                    const c = document.createElement('canvas'); c.width = c.height = 64;
+                    const g = c.getContext('2d');
+                    const rg = g.createRadialGradient(32, 32, 2, 32, 32, 30);
+                    rg.addColorStop(0, 'rgba(0,0,0,.5)');
+                    rg.addColorStop(1, 'rgba(0,0,0,0)');
+                    g.fillStyle = rg; g.fillRect(0, 0, 64, 64);
+                    return new THREE.CanvasTexture(c);
+                })(),
+                transparent: true, depthWrite: false
+            });
+            // ---------- MODEL VARLIKLARI (GLB) ----------
+            const gltfLoader = new THREE.GLTFLoader();
+            const MODEL_FILES = {
+                character: 'models/character.glb',
+                rifle: 'models/AK-47.glb',
+                pistol: 'models/tabanca.glb',
+                knife: 'models/bicak.glb'
+            };
+            const CHAR_TPL = { scene: null, anims: {} };   // karakter şablonu + animasyon klipleri
+            const CHAR_YAW = 0;   // model bakış yönü — geri geri yürürse Math.PI yap
+            const WEAP_TPL = {};                           // silah şablonları
+            let modelsReady = false;
+
+            function normalizeScene(scn, targetH) {
+                // boyu hedef yüksekliğe ölçekle, tabanı y=0'a ve merkezini eksene oturt
+                const box = new THREE.Box3().setFromObject(scn);
+                if (!isFinite(box.min.y)) return;
+                const h = Math.max(.001, box.max.y - box.min.y);
+                scn.scale.setScalar(targetH / h);
+                scn.updateMatrixWorld(true);
+                const b2 = new THREE.Box3().setFromObject(scn);
+                scn.position.x -= (b2.min.x + b2.max.x) / 2;
+                scn.position.z -= (b2.min.z + b2.max.z) / 2;
+                scn.position.y -= b2.min.y;
+            }
+
+            function normalizeWeapon(scn, len) {
+                // en uzun ekseni hedef uzunluğa indir, merkezini orijine al
+                const box = new THREE.Box3().setFromObject(scn);
+                const size = new THREE.Vector3(); box.getSize(size);
+                const long = Math.max(size.x, size.y, size.z) || 1;
+                scn.scale.setScalar(len / long);
+                scn.updateMatrixWorld(true);
+                const b2 = new THREE.Box3().setFromObject(scn);
+                const c = new THREE.Vector3(); b2.getCenter(c);
+                scn.position.set(-c.x, -c.y, -c.z);
+            }
+
+            function loadModels(done) {
+                let left = 4;
+                const fin = () => {
+                    if (--left) return;
+                    modelsReady = true;
+                    const ok = !!CHAR_TPL.scene;
+                    console.log('[MODELS] bitti — character:',
+                        ok ? 'OK' : 'YOK', '| silahlar:', Object.keys(WEAP_TPL).join(',') || 'yok');
+                    try {
+                        showStreak(ok ? 'GERÇEK MODELLER AKTİF ✓' :
+                            '⚠ MODELLER YÜKLENEMEDİ — KUTU ADAMLAR (F12 konsola bak)');
+                    } catch (e) { }
+                    done();
+                };
+                for (const key in MODEL_FILES) {
+                    gltfLoader.load(MODEL_FILES[key], g => {
+                        try {
+                            // Blender export artıkları: sahne kamerası/ışığını at
+                            const junk = [];
+                            g.scene.traverse(o => { if (o.isCamera || o.isLight) junk.push(o); });
+                            junk.forEach(o => { if (o.parent) o.parent.remove(o); });
+                            if (key === 'character') {
+                                normalizeScene(g.scene, 1.8);
+                                g.animations.forEach(c => CHAR_TPL.anims[c.name.replace('anim.', '')] = c);
+                                CHAR_TPL.scene = g.scene;
+                            } else {
+                                normalizeWeapon(g.scene, key === 'rifle' ? .72 : (key === 'pistol' ? .34 : .30));
+                                g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
+                                WEAP_TPL[key] = g.scene;
+                            }
+                            console.log('[MODELS] yüklendi:', key);
+                        } catch (e) {
+                            console.error('[MODELS] işleme hatası:', key, e);
+                        }
+                        fin();
+                    }, undefined, err => {
+                        // 404 / yanlış yol / nginx PHP döndürüyorsa buraya düşer
+                        console.error('[MODELS] YÜKLENEMEDİ:', MODEL_FILES[key],
+                            '→', err && err.message ? err.message.slice(0, 120) : err);
+                        try { showStreak('⚠ MODEL YOK: ' + key); } catch (e) { }
+                        fin();
+                    });
+                }
+            }
+
+            const legGeoP = new THREE.BoxGeometry(.2, .55, .22);
+            legGeoP.translate(0, -.275, 0);
+
+            function makeCharMesh() {
+                const g = new THREE.Group();
+                const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2e4a6b, roughness: .55, metalness: .3 });
+                const darkMat = new THREE.MeshStandardMaterial({ color: 0x191d24, roughness: .6, metalness: .5 });
+                const eyeMat = new THREE.MeshBasicMaterial({ color: 0x39c8ff });
+                const torso = new THREE.Mesh(new THREE.BoxGeometry(.62, .75, .36), bodyMat);
+                torso.position.y = 1.05;
+                const pelvis = new THREE.Mesh(new THREE.BoxGeometry(.5, .25, .3), darkMat);
+                pelvis.position.y = .58;
+                const head = new THREE.Mesh(new THREE.SphereGeometry(.21, 14, 12), darkMat);
+                head.position.y = 1.68;
+                const visor = new THREE.Mesh(new THREE.BoxGeometry(.27, .07, .06), eyeMat);
+                visor.position.set(0, 1.69, -.185);
+                head.add(visor);
+                const legL = new THREE.Mesh(legGeoP, darkMat); legL.position.set(-.15, .55, 0);
+                const legR = new THREE.Mesh(legGeoP, darkMat); legR.position.set(.15, .55, 0);
+                const armL = new THREE.Mesh(new THREE.BoxGeometry(.14, .14, .5), bodyMat);
+                armL.position.set(-.3, 1.18, -.22);
+                const armR = new THREE.Mesh(new THREE.BoxGeometry(.14, .14, .5), bodyMat);
+                armR.position.set(.3, 1.18, -.22);
+                const gun = new THREE.Mesh(new THREE.BoxGeometry(.09, .12, .55), darkMat);
+                gun.position.set(.05, 1.16, -.5);
+                [torso, pelvis, head, legL, legR, armL, armR].forEach(m => { m.castShadow = true; g.add(m); });
+                g.add(gun);
+                return { group: g, head, legL, legR };
+            }
+
+            function nameSprite(name) {
+                const c = document.createElement('canvas'); c.width = 256; c.height = 48;
+                const g = c.getContext('2d');
+                g.font = 'bold 30px Rajdhani, sans-serif';
+                g.textAlign = 'center'; g.textBaseline = 'middle';
+                g.shadowColor = 'rgba(0,0,0,.95)'; g.shadowBlur = 8;
+                g.fillStyle = '#ffffff';
+                g.fillText(name, 128, 26);
+                const s = new THREE.Sprite(new THREE.SpriteMaterial({
+                    map: new THREE.CanvasTexture(c), transparent: true
+                }));
+                s.scale.set(1.7, .32, 1);
+                s.position.y = 2.42;
+                return s;
+            }
+
+            const remoteMeshes = {};
+            const remotes = {};
+            const enemyHitMeshes = [];
+            const hitboxMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+            function rebuildEnemyHitMeshes() {
+                enemyHitMeshes.length = 0;
+                for (const id in remoteMeshes)
+                    for (const msh of remoteMeshes[id].hitList) enemyHitMeshes.push(msh);
+            }
+
+            function makePlayerMesh(id, name) {
+                const g = new THREE.Group();
+                let mixer = null, actions = {};
+
+                if (modelsReady && CHAR_TPL.scene && THREE.SkeletonUtils) {
+                    // gerçek model: iskeletli klon + animasyonlar
+                    const model = THREE.SkeletonUtils.clone(CHAR_TPL.scene);
+                    model.rotation.y = CHAR_YAW;
+                    model.traverse(o => {
+                        if (o.isMesh || o.isSkinnedMesh) { o.castShadow = true; o.frustumCulled = false; }
+                    });
+                    g.add(model);
+                    mixer = new THREE.AnimationMixer(model);
+                    ['idle', 'walk', 'run'].forEach(nm => {
+                        if (CHAR_TPL.anims[nm]) actions[nm] = mixer.clipAction(CHAR_TPL.anims[nm]);
+                    });
+                    if (actions.idle) { actions.idle.play(); }
+                } else {
+                    // fallback: kutu adam
+                    const parts = makeCharMesh();
+                    g.add(parts.group);
+                }
+
+                const bs = new THREE.Mesh(new THREE.CircleGeometry(.55, 18), blobShadowMat);
+                bs.rotation.x = -Math.PI / 2; bs.position.y = .02;
+                bs.userData.noHit = true;
+                g.add(bs);
+                g.add(nameSprite(name));
+                const hbCv = document.createElement('canvas'); hbCv.width = 64; hbCv.height = 8;
+                const hbTex = new THREE.CanvasTexture(hbCv);
+                const hbSpr = new THREE.Sprite(new THREE.SpriteMaterial({ map: hbTex, transparent: true }));
+                hbSpr.scale.set(.95, .12, 1); hbSpr.position.y = 2.14;
+                g.add(hbSpr);
+
+                // görünmez isabet kutuları — raycast bunlara çarpar (skinned mesh derdi yok)
+                const hitList = [];
+                const bodyHb = new THREE.Mesh(new THREE.CylinderGeometry(.34, .34, 1.15, 10), hitboxMat);
+                bodyHb.position.y = .95;
+                bodyHb.userData.pid = id; bodyHb.userData.part = 'body';
+                const headHb = new THREE.Mesh(new THREE.SphereGeometry(.24, 8, 8), hitboxMat);
+                headHb.position.y = 1.62;
+                headHb.userData.pid = id; headHb.userData.part = 'head';
+                g.add(bodyHb); g.add(headHb);
+                hitList.push(bodyHb, headHb);
+
+                scene.add(g);
+                remoteMeshes[id] = {
+                    group: g, hitList, mixer, actions, curAnim: '',
+                    modelRoot: modelsReady && CHAR_TPL.scene ? g.children[0] : null,
+                    weapon: null, weaponCode: 0,
+                    hbCv, hbTex, hbSpr, walkPhase: 0, lastX: 0, lastZ: 0
+                };
+                attachRemoteWeapon(id, 1);
+                rebuildEnemyHitMeshes();
+            }
+
+            // silah fit ayarları — bbox ölçümüne göre (uzun eksen: AK=Z, tabanca/bıçak=X)
+            const WEAPON_FIT = {
+                rifle:  { len: .72, ry: 0,           px: .30, py: 1.18, pz: -.28 },
+                pistol: { len: .34, ry: Math.PI / 2, px: .32, py: 1.18, pz: -.20 },
+                knife:  { len: .30, ry: Math.PI / 2, px: .32, py: 1.15, pz: -.18 }
+            };
+            function attachRemoteWeapon(id, code) {
+                const m = remoteMeshes[id];
+                if (!m) return;
+                code = code | 0;
+                if (m.weaponCode === code) return;
+                m.weaponCode = code;
+                if (m.weapon) { m.weapon.parent.remove(m.weapon); m.weapon = null; }
+                const key = code === 3 ? 'knife' : (code === 2 ? 'pistol' : 'rifle');
+                if (!modelsReady || !WEAP_TPL[key]) return;
+                const fit = WEAPON_FIT[key];
+                const w = WEAP_TPL[key].clone(true);
+                w.rotation.set(0, fit.ry, 0);
+                w.position.set(fit.px, fit.py, fit.pz);
+                w.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
+                m.weapon = w;
+                (m.modelRoot || m.group).add(w);
+            }
+
+            // pozlanmış iskeletin GERÇEK dünya bbox'ı (r128 Box3 skinning bilmez,
+            // bone matrisleriyle manuel örnekliyoruz) — zemin kalibrasyonu için
+            const _calV = new THREE.Vector3(), _calSkin = new THREE.Matrix4(), _calBone = new THREE.Matrix4();
+            function posedBounds(root) {
+                root.updateMatrixWorld(true);
+                const box = new THREE.Box3(); box.makeEmpty();
+                root.traverse(o => {
+                    if (!o.isSkinnedMesh || !o.skeleton) return;
+                    const pos = o.geometry.attributes.position;
+                    const si = o.geometry.attributes.skinIndex;
+                    const sw = o.geometry.attributes.skinWeight;
+                    if (!pos || !si || !sw) return;
+                    const bones = o.skeleton.bones, invs = o.skeleton.boneInverses;
+                    const step = Math.max(1, Math.floor(pos.count / 400));
+                    for (let i = 0; i < pos.count; i += step) {
+                        _calSkin.set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+                        for (let k = 0; k < 4; k++) {
+                            const w = sw.getComponent(i, k);
+                            if (w < .001) continue;
+                            const bi = si.getComponent(i, k);
+                            _calBone.multiplyMatrices(bones[bi].matrixWorld, invs[bi]);
+                            for (let e = 0; e < 16; e++) _calSkin.elements[e] += _calBone.elements[e] * w;
+                        }
+                        _calV.set(pos.getX(i), pos.getY(i), pos.getZ(i)).applyMatrix4(_calSkin);
+                        o.localToWorld(_calV);
+                        box.expandByPoint(_calV);
+                    }
+                });
+                return box;
+            }
+
+            function removeRemote(id) {
+                const r = remoteMeshes[id];
+                if (!r) return;
+                scene.remove(r.group);
+                delete remoteMeshes[id];
+                delete remotes[id];
+                rebuildEnemyHitMeshes();
+            }
+
+            function setRemoteHp(id, hp) {
+                const r = remoteMeshes[id];
+                if (!r) return;
+                const g = r.hbCv.getContext('2d');
+                g.clearRect(0, 0, 64, 8);
+                g.fillStyle = 'rgba(0,0,0,.65)'; g.fillRect(0, 0, 64, 8);
+                const pct = clamp(hp / 100, 0, 1);
+                g.fillStyle = pct > .5 ? '#c0ff00' : (pct > .25 ? '#ffb020' : '#ff4040');
+                g.fillRect(1, 1, Math.max(0, 62 * pct), 6);
+                r.hbTex.needsUpdate = true;
+                r.hbSpr.visible = hp > 0 && hp < 100;
+            }
+
+            // ---- BİRİNCİ ŞAHIS VIEWMODEL'LER: prosedürel gövdeyi GLB ile değiştir ----
+            // Namlu ucu (flash/light) eski konumlarında kalır; GLB'ler o hizada konumlanır.
+            function upgradeFirstPersonWeapons() {
+                const fits = {
+                    rifle:  { key: 'rifle',  ry: 0,           z: -.36 },   // namlu ucu ≈ -.72
+                    deagle: { key: 'pistol', ry: Math.PI / 2, z: -.10 },
+                    knife:  { key: 'knife',  ry: Math.PI / 2, z: -.10 }
+                };
+                for (const gid in fits) {
+                    const g = GUNS.find(x => x.id === gid);
+                    const f = fits[gid];
+                    if (!g || !g.model || !WEAP_TPL[f.key]) continue;
+                    const w = WEAP_TPL[f.key].clone(true);
+                    w.rotation.set(0, f.ry, 0);
+                    w.position.set(0, 0, f.z);
+                    w.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
+                    g.model.traverse(o => { if (o.isMesh) o.visible = false; });   // prosedürel kutular gizlenir
+                    g.model.add(w);   // flash sprite + namlu ışığı aynen kalır
+                }
+            }
+
+            // modeller sonradan yüklenirse mevcut kutu adamları gerçek modellerle değiştir
+            loadModels(() => {
+                upgradeFirstPersonWeapons();
+                for (const id in remoteMeshes) {
+                    const keep = remotes[id];
+                    const nm = keep ? keep.name : ('Oyuncu-' + id);
+                    removeRemote(id);
+                    if (keep) remotes[id] = keep;
+                    makePlayerMesh(id, nm);
+                }
+            });
+
+            function updateRemotes(dt) {
+                for (const id in remotes) {
+                    const r = remotes[id], m = remoteMeshes[id];
+                    if (!m) continue;
+                    if (!r.alive) {
+                        if (r.dieT < 1.4) {
+                            r.dieT += dt;
+                            m.group.rotation.x = Math.max(-Math.PI / 2, m.group.rotation.x - dt * 3.2);
+                            if (r.dieT > .55) m.group.position.y = -(r.dieT - .55) * 1.6;
+                        }
+                        continue;
+                    }
+                    // respawn belirme efekti: önce gizli, sonra küçükten büyüyerek görünür
+                    if (r.hiddenT > 0) {
+                        r.hiddenT -= dt;
+                        m.group.visible = false;
+                        m.lastX = r.cx; m.lastZ = r.cz;
+                        if (r.hiddenT <= 0) { m.group.visible = true; m.group.scale.setScalar(.5); }
+                        continue;
+                    }
+                    if (m.group.scale.x < 1) m.group.scale.setScalar(Math.min(1, m.group.scale.x + dt * 2.5));
+                    const k = 1 - Math.exp(-14 * dt);
+                    r.cx = lerp(r.cx, r.tx, k);
+                    r.cy = lerp(r.cy, r.ty, k);
+                    r.cz = lerp(r.cz, r.tz, k);
+                    let dyaw = r.tyaw - r.cyaw;
+                    while (dyaw > Math.PI) dyaw -= Math.PI * 2;
+                    while (dyaw < -Math.PI) dyaw += Math.PI * 2;
+                    r.cyaw += dyaw * k;
+
+                    const spd = Math.hypot(r.cx - m.lastX, r.cz - m.lastZ) / Math.max(dt, .001);
+                    m.lastX = r.cx; m.lastZ = r.cz;
+                    if (m.mixer) {
+                        // gerçek animasyonlar: hıza göre idle/walk/run, crossfade geçişli
+                        const want = spd > 3.2 ? 'run' : (spd > .5 ? 'walk' : 'idle');
+                        if (want !== m.curAnim && m.actions[want]) {
+                            const nxt = m.actions[want];
+                            const prv = m.curAnim ? m.actions[m.curAnim] : null;
+                            nxt.reset().fadeIn(.15).play();
+                            if (prv) prv.fadeOut(.15);
+                            m.curAnim = want;
+                        }
+                        m.mixer.update(dt);
+                        // zemin kalibrasyonu: spawn'dan kısa süre sonra pozlanmış gerçek
+                        // alt sınırı ölç ve modeli yere oturt (animasyon pozu ne olursa olsun)
+                        if (!m.calibrated) {
+                            m.calibT = (m.calibT || 0) + dt;
+                            if (m.calibT > .45 && m.modelRoot) {
+                                m.calibrated = true;
+                                const b = posedBounds(m.modelRoot);
+                                if (isFinite(b.min.y)) {
+                                    m.modelRoot.position.y -= b.min.y - m.group.position.y;
+                                }
+                            }
+                        }
+                    } else if (m.parts) {
+                        // kutu adam fallback yürüme salınımı
+                        if (spd > .5) {
+                            m.walkPhase += dt * spd * 2.2;
+                            const sw = Math.sin(m.walkPhase) * .55;
+                            m.parts.legL.rotation.x = sw;
+                            m.parts.legR.rotation.x = -sw;
+                        } else {
+                            m.parts.legL.rotation.x = lerp(m.parts.legL.rotation.x, 0, .2);
+                            m.parts.legR.rotation.x = lerp(m.parts.legR.rotation.x, 0, .2);
+                        }
+                    }
+
+                    m.group.position.set(r.cx, r.cy, r.cz);
+                    m.group.rotation.y = r.cyaw;
+                }
+            }
+
+
+            // ================= MERMİ İZLERİ (DECAL) =================
+            function decalTexture() {
+                const c = document.createElement('canvas'); c.width = c.height = 64;
+                const g = c.getContext('2d');
+                const rg = g.createRadialGradient(32, 32, 2, 32, 32, 30);
+                rg.addColorStop(0, 'rgba(10,10,10,.95)');
+                rg.addColorStop(.5, 'rgba(15,15,15,.5)');
+                rg.addColorStop(1, 'rgba(0,0,0,0)');
+                g.fillStyle = rg; g.fillRect(0, 0, 64, 64);
+                return new THREE.CanvasTexture(c);
+            }
+            const decalPool = [];
+            for (let i = 0; i < 36; i++) {
+                const m = new THREE.Mesh(new THREE.PlaneGeometry(.24, .24),
+                    new THREE.MeshBasicMaterial({ map: decalTexture(), transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+                m.visible = false;
+                scene.add(m);
+                decalPool.push({ m, life: 0 });
+            }
+            let decalIdx = 0;
+            function spawnDecal(point, normal) {
+                const d = decalPool[decalIdx++ % decalPool.length];
+                d.m.position.copy(point).addScaledVector(normal, .02);
+                d.m.lookAt(point.clone().add(normal));
+                d.m.rotation.z = rand(0, 6.28);
+                d.m.scale.setScalar(rand(.7, 1.4));
+                d.m.visible = true;
+                d.m.material.opacity = .8;
+                d.life = 7;
+            }
+            function updateDecals(dt) {
+                for (const d of decalPool) {
+                    if (d.life > 0) {
+                        d.life -= dt;
+                        d.m.material.opacity = clamp(d.life * .35, 0, .8);
+                        if (d.life <= 0) d.m.visible = false;
+                    }
+                }
+            }
+
+            // ================= POP-UP & SERİ KILL =================
+            function spawnPop(text, cls) {
+                const el = document.createElement('div');
+                el.className = 'score-pop ' + (cls || '');
+                el.style.marginLeft = rand(-46, 46) + 'px';
+                el.textContent = text;
+                $('popups').appendChild(el);
+                setTimeout(() => el.remove(), 1150);
+            }
+            function showStreak(text) {
+                const el = $('streak-txt');
+                el.textContent = text;
+                el.classList.remove('show');
+                void el.offsetWidth;
+                el.classList.add('show');
+            }
+
+            // ================= AĞ (ONLINE) =================
+            const NET_PORT = 2000;
+            let ws = null, myId = null, wsReady = false;
+            let netSendT = 0, respawnT = 0, imDead = false, deaths = 0, onlineCount = 1, pingMs = 0;
+            const SPAWNS = [[0, -50], [0, 50], [-45, 0], [45, 0], [-40, -40], [40, 40], [40, -40], [-40, 40]];
+
+            function getCookie(n) {
+                const m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)'));
+                return m ? decodeURIComponent(m[1]) : '';
+            }
+            function setCookie(n, v) {
+                document.cookie = n + '=' + encodeURIComponent(v) + ';max-age=31536000;path=/';
+            }
+            function playerName() {
+                return (window.__oxyName || 'Oyuncu').slice(0, 16);
+            }
+
+            function wsUrl() {
+                // HTTPS: aynı-origin wss (web sunucudaki /oxystrike/ proxy'si) — mixed content engeli yok
+                // HTTP : doğrudan oyun portu
+                if (location.protocol === 'https:')
+                    return 'wss://' + location.host + '/oxystrike/ws';
+                return 'ws://' + location.hostname + ':' + NET_PORT + '/';
+            }
+
+            let netRetryT = 0;
+            function scheduleNetRetry() {
+                clearTimeout(netRetryT);
+                netRetryT = setTimeout(() => { if (state === 'playing') netConnect(); }, 2500);
+            }
+            function netConnect() {
+                if (ws && (ws.readyState === 0 || ws.readyState === 1)) return; // zaten bağlı / bağlanıyor
+                try { if (ws) { ws.onclose = null; ws.close(); } } catch (e) { }
+                addFeed('SUNUCU', playerName(), 'bağlanılıyor…');
+                try {
+                    ws = new WebSocket(wsUrl());
+                } catch (e) {
+                    scheduleNetRetry();
+                    return;
+                }
+                ws.onopen = () => ws.send(JSON.stringify({ t: 'join', name: playerName() }));
+                ws.onmessage = ev => {
+                    let m;
+                    try { m = JSON.parse(ev.data); } catch (e) { return; }
+                    handleNet(m);
+                };
+                ws.onclose = () => {
+                    const was = wsReady;
+                    wsReady = false;
+                    for (const id in remotes) removeRemote(id);
+                    refreshOnline();
+                    if (state === 'playing') {
+                        if (was) showStreak('BAĞLANTI KOPTU — YENİDEN BAĞLANIYOR…');
+                        scheduleNetRetry();   // ilk deneme başarısız olsa da sonsuz tekrar dene
+                    }
+                };
+            }
+
+            function nameOf(id) {
+                return id === myId ? 'Sen' : (remotes[id] ? remotes[id].name : '?');
+            }
+
+            function upsertRemote(p) {
+                const id = p[0];
+                if (id === myId) return;
+                if (!remotes[id]) {
+                    // 'join' mesajı kaçırılmışsa (hızlı reconnect vb.) kaydı burada oluştur;
+                    // yoksa aşağıdaki r.name patlar ve snap döngüsü yarım kalır.
+                    const nm = p[8] || ('Oyuncu-' + id);
+                    makePlayerMesh(id, nm);
+                    remotes[id] = {
+                        name: nm, hp: p[5] === undefined ? 100 : p[5],
+                        kills: 0, deaths: 0,
+                        alive: (p[5] === undefined || p[5] > 0),
+                        dieT: (p[5] !== undefined && p[5] <= 0) ? 1.4 : 0,
+                        tx: p[1], ty: p[2], tz: p[3], tyaw: p[4],
+                        cx: p[1], cy: p[2], cz: p[3], cyaw: p[4]
+                    };
+                    setRemoteHp(id, remotes[id].hp);
+                    return;
+                }
+                const r = remotes[id];
+                r.name = p[8] || r.name;
+                r.tx = p[1]; r.ty = p[2]; r.tz = p[3]; r.tyaw = p[4];
+                if (r.fresh) { r.cx = r.tx; r.cy = r.ty; r.cz = r.tz; r.cyaw = r.tyaw; r.fresh = false; }
+                if (p[5] !== undefined && p[5] !== r.hp) { r.hp = p[5]; setRemoteHp(id, r.hp); }
+                r.kills = p[6] || 0; r.deaths = p[7] || 0;
+                if (p[9] !== undefined) attachRemoteWeapon(id, p[9]);
+            }
+
+            function handleNet(m) {
+                switch (m.t) {
+                    case 'welcome':
+                        myId = m.id;
+                        wsReady = true;
+                        refreshOnline();
+                        showStreak('SUNUCU BAĞLANTISI KURULDU ✓');
+                        break;
+                    case 'join':
+                        if (m.id !== myId && !remotes[m.id]) {
+                            makePlayerMesh(m.id, m.name);
+                            remotes[m.id] = {
+                                name: m.name, hp: 100, kills: 0, deaths: 0, alive: true, dieT: 0,
+                                tx: m.x, ty: 0, tz: m.z, tyaw: 0,
+                                cx: m.x, cy: 0, cz: m.z, cyaw: 0
+                            };
+                            setRemoteHp(m.id, 100);
+                            addFeed(m.name, 'arena', 'katıldı');
+                            sfxSwitch();
+                        }
+                        refreshOnline();
+                        break;
+                    case 'leave':
+                        if (remotes[m.id]) addFeed(remotes[m.id].name, 'arena', 'ayrıldı');
+                        removeRemote(m.id);
+                        refreshOnline();
+                        break;
+                    case 'snap':
+                        {
+                            // Snapshot'ta görünmeyen eski kimlikler hayalettir → anında temizle.
+                            // (leave mesajı kaçırıldıysa bile en geç 50 ms'de silinir.)
+                            const seen = {};
+                            for (const p of m.pl) { seen[p[0]] = true; upsertRemote(p); }
+                            for (const id in remotes)
+                                if (!seen[id]) removeRemote(id);
+                            refreshOnline();
+                        }
+                        break;
+                    case 'hurt':
+                        P.hp = Math.max(0, m.hp);
+                        dmgFlash = Math.min(1, dmgFlash + m.dmg / 38);
+                        sfxHurt();
+                        if (m.fx !== undefined) showHitDir(V3(m.fx, 0, m.fz));
+                        if (P.hp <= 0 && state === 'playing' && !imDead) localDied(m.by);
+                        break;
+                    case 'kill':
+                        {
+                            const vn = nameOf(m.victim);
+                            const kn = m.killer === myId ? 'Sen' : nameOf(m.killer);
+                            if (m.victim !== myId) addFeed(kn, vn, m.head ? 'KAFADAN 🎯' : 'elimine');
+                            if (m.killer === myId && m.victim !== myId) {
+                                streak++; streakT = 4;
+                                kills++;
+                                P.hp = Math.min(100, P.hp + 20);
+                                updateStatsUI();
+                                spawnPop(m.head ? 'KAFADAN! 🎯' : 'ELİMİNE!', m.head ? 'head' : '');
+                                sfxKill();
+                                if (streak >= 2) sfxStreak(streak);
+                                if (streak === 2) showStreak('ÇİFTE KILL!');
+                                else if (streak === 3) showStreak('ÜÇLEME! 🔥');
+                                else if (streak === 8) showStreak('EFSANESİN!! 👑');
+                            }
+                            if (m.victim !== myId && remotes[m.victim]) {
+                                remotes[m.victim].alive = false;
+                                remotes[m.victim].dieT = 0;
+                                remoteMeshes[m.victim].hbSpr.visible = false;
+                            }
+                        }
+                        break;
+                    case 'respawn':
+                        if (m.id === myId) {
+                            imDead = false;
+                            P.pos.set(m.x, 0, m.z);
+                            P.vel.set(0, 0, 0);
+                            P.hp = 100;
+                            dmgFlash = 0;
+                            GUNS.forEach(g => { if (!g.melee) g.mag = g.magSize; });
+                            $('death-screen').classList.add('hidden');
+                            updateAmmoUI();
+                            sfxPickup();
+                        } else if (remotes[m.id]) {
+                            const r = remotes[m.id];
+                            r.alive = true; r.dieT = 0; r.hp = 100;
+                            r.tx = m.x; r.ty = 0; r.tz = m.z;
+                            r.cx = m.x; r.cy = 0; r.cz = m.z;
+                            const mm = remoteMeshes[m.id];
+                            mm.group.rotation.x = 0;
+                            mm.group.position.set(m.x, 0, m.z);
+                            mm.group.visible = false;   // doğuş noktası ele verilmesin
+                            r.hiddenT = .45;            // kısa süre gizli → belirme efekti
+                            setRemoteHp(m.id, 100);
+                        }
+                        break;
+                    case 'fx':
+                        {
+                            // rakibin ateşi: tracer + duvarda mermi izi + mesafeye göre ses
+                            const A = V3(m.a[0], m.a[1], m.a[2]);
+                            const B = V3(m.b[0], m.b[1], m.b[2]);
+                            spawnTracer(A, B, 0xffb060);
+                            spawnDecal(B, Array.isArray(m.n) ? V3(m.n[0], m.n[1], m.n[2]) : V3(0, 1, 0));
+                            const d = A.distanceTo(P.pos);
+                            if (d < 90) sfxRemoteShot(Math.max(.06, 1 - d / 90));
+                        }
+                        break;
+                }
+            }
+
+            function sendHit(targetId, dmg, head) {
+                if (wsReady && ws) ws.send(JSON.stringify({ t: 'hit', target: targetId, dmg: dmg | 0, head: !!head }));
+            }
+
+            function sendShotFx(a, b, n) {
+                if (!wsReady || !ws) return;
+                ws.send(JSON.stringify({
+                    t: 'shot',
+                    a: [+a.x.toFixed(2), +a.y.toFixed(2), +a.z.toFixed(2)],
+                    b: [+b.x.toFixed(2), +b.y.toFixed(2), +b.z.toFixed(2)],
+                    n: n ? [+n.x.toFixed(2), +n.y.toFixed(2), +n.z.toFixed(2)] : [0, 1, 0]
+                }));
+            }
+
+            function netTick(now) {
+                if (!wsReady || !ws) return;
+                if (now - netSendT < 33) return;
+                netSendT = now;
+                ws.send(JSON.stringify({
+                    t: 'state',
+                    p: [+P.pos.x.toFixed(2), +P.pos.y.toFixed(2), +P.pos.z.toFixed(2),
+                        +P.yaw.toFixed(3), +P.pitch.toFixed(3),
+                        imDead ? -1 : (GUNS[curGun].id === 'knife' ? 3 : (GUNS[curGun].id === 'deagle' ? 2 : 1))]
+                }));
+            }
+
+            function localDied(by) {
+                imDead = true;
+                deaths++;
+                firing = false;
+                setScope(false);
+                $('menu-pause').classList.add('hidden');   // pause'dayken öldüyse doğrudan ölüm ekranı
+                for (const k in keys) keys[k] = false;
+                $('death-by').textContent = nameOf(by) === '?' ? '' : '☠ ' + nameOf(by) + ' tarafından';
+                $('death-screen').classList.remove('hidden');
+                respawnT = 5;
+                updateStatsUI();
+            }
+
+            function refreshOnline() {
+                onlineCount = wsReady ? 1 + Object.keys(remotes).length : 0;
+                $('stat-online').textContent = onlineCount;
+            }
+
+            function showHitDir(fromPos) {
+                const dx = fromPos.x - P.pos.x, dz = fromPos.z - P.pos.z;
+                const phi = Math.atan2(-dx, -dz) - P.yaw;
+                const el = $('hit-dir');
+                el.style.transform = 'rotate(' + (-phi) + 'rad)';
+                el.classList.remove('on');
+                void el.offsetWidth;
+                el.classList.add('on');
+            }
+
+
+
+
+            // ================= HUD =================
+            function updateAmmoUI() {
+                const g = GUNS[curGun];
+                $('weapon-name').textContent = g.name;
+                const el = $('ammo-mag');
+                if (g.melee) {
+                    el.textContent = '—';
+                    el.classList.remove('empty');
+                    $('ammo-res').textContent = '';
+                    $('reload-hint').classList.remove('show');
+                    return;
+                }
+                el.textContent = g.mag;
+                el.classList.toggle('empty', g.mag === 0);
+                $('ammo-res').textContent = '/ ∞';
+                $('reload-hint').classList.toggle('show', g.mag <= Math.ceil(g.magSize / 4) || reloading);
+                $('reload-hint').textContent = reloading ? 'ŞARJÖR DEĞİŞİYOR…' : 'R — ŞARJÖR DEĞİŞTİR';
+            }
+            function updateStatsUI() {
+                $('stat-kills').textContent = kills;
+                $('stat-deaths').textContent = deaths;
+            }
+            function showHitmarker(isKill) {
+                const hm = $('hitmarker');
+                hm.classList.toggle('kill', !!isKill);
+                hm.classList.remove('pop');
+                void hm.offsetWidth;
+                hm.classList.add('pop');
+            }
+            function addFeed(actor, target, verb) {
+                const feed = $('feed');
+                const div = document.createElement('div');
+                div.className = 'feed-item';
+                div.innerHTML = '<b>' + actor + '</b> ⟶ ' + target + ' · ' + verb;
+                feed.prepend(div);
+                while (feed.children.length > 5) feed.lastChild.remove();
+                setTimeout(() => div.classList.add('out'), 3200);
+                setTimeout(() => div.remove(), 3800);
+            }
+            function updateHud(dt, now) {
+                $('hp-num').textContent = Math.ceil(P.hp);
+                const fill = $('hp-fill');
+                fill.style.width = clamp(P.hp, 0, 100) + '%';
+                fill.classList.toggle('low', P.hp < 35);
+                dmgFlash = Math.max(0, dmgFlash - dt * 1.5);
+                let vig = dmgFlash;
+                if (P.hp < 30 && state === 'playing') vig = Math.max(vig, .22 + Math.sin(now * .008) * .08);
+                $('dmg').style.opacity = vig.toFixed(3);
+                if (P.hp < 28 && state === 'playing') {
+                    hbT -= dt;
+                    if (hbT <= 0) { hbT = .55 + P.hp / 40; sfxHeart(); }
+                }
+            }
+
+            // ================= RADAR =================
+            const rctx = $('radar').getContext('2d');
+            let radarSweep = 0;
+            function drawRadar(dt) {
+                const S = 150, C = S / 2, R = 68, scale = R / 55;
+                rctx.clearRect(0, 0, S, S);
+                rctx.save();
+                rctx.beginPath(); rctx.arc(C, C, R, 0, 7); rctx.clip();
+                rctx.strokeStyle = 'rgba(192,255,0,.14)';
+                [22, 45].forEach(r => { rctx.beginPath(); rctx.arc(C, C, r, 0, 7); rctx.stroke(); });
+                radarSweep += dt * 2.2;
+                rctx.fillStyle = 'rgba(192,255,0,.06)';
+                rctx.beginPath(); rctx.moveTo(C, C);
+                rctx.arc(C, C, R, radarSweep, radarSweep + .9); rctx.closePath(); rctx.fill();
+
+                const cy = Math.cos(P.yaw), sy = Math.sin(P.yaw);
+                for (const id in remotes) {
+                    const r = remotes[id], rm = remoteMeshes[id];
+                    if (!r.alive || !rm) continue;
+                    const rx = rm.group.position.x - P.pos.x;
+                    const rz = rm.group.position.z - P.pos.z;
+                    let sx = (rx * cy - rz * sy) * scale;
+                    let sz = (rx * sy + rz * cy) * scale;
+                    const d = Math.hypot(sx, sz);
+                    if (d > R - 4) { sx = sx / d * (R - 4); sz = sz / d * (R - 4); }
+                    rctx.fillStyle = '#ff4040';
+                    rctx.beginPath(); rctx.arc(C + sx, C + sz, 3.2, 0, 7); rctx.fill();
+                }
+                rctx.fillStyle = ACCENT_HEX();
+                rctx.beginPath();
+                rctx.moveTo(C, C - 6); rctx.lineTo(C - 4.5, C + 5); rctx.lineTo(C + 4.5, C + 5);
+                rctx.closePath(); rctx.fill();
+                rctx.restore();
+            }
+
+            // ================= ANA DÖNGÜ =================
+            let lastT = performance.now();
+            function loop() {
+                requestAnimationFrame(loop);
+                const now = performance.now();
+                let dt = (now - lastT) / 1000;
+                lastT = now;
+                if (dt > .05) dt = .05;
+
+                if (state === 'playing' || state === 'paused') {
+                    // NOT: pause dünyayı dondurmaz — sunucuda her şey akar,
+                    // menü açıkken de fizik/hasar devam eder (havada kalan düşer).
+                    if (!wsReady) {
+                        // SUNUCUSUZ DOLAŞMAK YOK: arena bağlantı gelene kadar kilitli
+                        $('net-block').classList.remove('hidden');
+                        firing = false;
+                        for (const k in keys) keys[k] = false;
+                    } else {
+                        $('net-block').classList.add('hidden');
+                        if (imDead) {
+                            // ÖLÜYKEN HAREKET/ATEŞ YOK: yeniden doğana kadar dondur
+                            firing = false;
+                            for (const k in keys) keys[k] = false;
+                            attackT = 0;
+                        } else {
+                            updatePlayer(dt);
+                            updateWeapon(dt, now);
+                        }
+                        updateRemotes(dt);
+                        netTick(now);
+                        if (imDead && respawnT > 0) {
+                            respawnT -= dt;
+                            $('death-count').textContent = Math.max(1, Math.ceil(respawnT));
+                        }
+                    }
+                    updateHud(dt, now);
+                    drawRadar(dt);
+                } else if (state === 'menu' || state === 'dead') {
+                    const t = now * .00007;
+                    camera.position.set(Math.cos(t) * 34, 11, Math.sin(t) * 34);
+                    camera.lookAt(0, 1.5, 0);
+                    weaponRoot.visible = false;
+                }
+
+                updateParticles(dt);
+                for (const sp of cloudSprites) {
+                    sp.position.x += dt * 1.1;
+                    if (sp.position.x > 175) sp.position.x = -175;
+                }
+                updateTracers(dt);
+                updateDecals(dt);
+                fpsFrames++; fpsTime += dt;
+                if (fpsTime >= .5) {
+                    if (S.fps) $('fps-counter').textContent = Math.round(fpsFrames / fpsTime) + ' FPS';
+                    fpsFrames = 0; fpsTime = 0;
+                }
+                // iki aşamalı render: dünya + silah katmanı (duvar içine girmez)
+                renderer.clear();
+                renderer.render(scene, camera);
+                renderer.clearDepth();
+                renderer.render(wScene, wCamera);
+            }
+
+            camera.position.set(30, 11, 10);
+            camera.lookAt(0, 1.5, 0);
+            loop();
+        };
+        window.__initGame();
+    </script>
+</body>
+
+</html>
